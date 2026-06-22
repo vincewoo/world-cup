@@ -111,6 +111,35 @@ const labelStyle: CSSProperties = {
   font: "600 9px/1.1 'Space Grotesk'", letterSpacing: '.06em', color: '#7c8597', marginBottom: 5,
 };
 
+// Polymarket implied odds vs the model — shown under a knockout matchup when a
+// market exists for that exact pairing. Market win% is normalized to exclude the
+// draw so the "edge vs model" is an apples-to-apples advance probability.
+function MarketCompare({ market, flagA, flagB }: {
+  market: NonNullable<MatchView['market']>; flagA: string; flagB: string;
+}) {
+  const { pA, pDraw, pB, modelA } = market;
+  const advA = pA + pB > 0 ? (pA / (pA + pB)) * 100 : 50;
+  const edge = advA - modelA; // + → market rates side A higher than the model
+  const lead = edge >= 0 ? flagA : flagB;
+  const edgeColor = Math.abs(edge) < 3 ? '#828b9d' : '#4fc3f7';
+  const cell: CSSProperties = { font: "700 11px/1 'Space Grotesk'", fontVariantNumeric: 'tabular-nums', color: '#cfd5e0' };
+  return (
+    <div style={{ marginTop: 8, borderTop: '1px dashed #262b36', paddingTop: 7 }}>
+      <div style={{ ...labelStyle, color: '#6f93b0', marginBottom: 4 }}>MARKET · POLYMARKET</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={cell}>{flagA} {Math.round(pA)}%</span>
+        <span style={{ font: "600 10px/1 'Space Grotesk'", color: '#697283' }}>draw {Math.round(pDraw)}%</span>
+        <span style={cell}>{Math.round(pB)}% {flagB}</span>
+      </div>
+      <div style={{ marginTop: 4, font: "600 10px/1.2 'Space Grotesk'", color: edgeColor }}>
+        {Math.abs(edge) < 3
+          ? 'In line with model'
+          : `Market favors ${lead} by ${Math.round(Math.abs(edge))} pts vs model`}
+      </div>
+    </div>
+  );
+}
+
 export function Matchup({ match }: { match: MatchView }) {
   const pickColor = match.pickColor || '#63e06f';
   const cardBorder = match.highlight ? hexA(pickColor, 0.4) : '#262b36';
@@ -146,6 +175,14 @@ export function Matchup({ match }: { match: MatchView }) {
       {match.slotB.rows.map((row, i) => (
         <Row key={'b' + i} row={row} pickColor={pickColor} />
       ))}
+
+      {match.market && (
+        <MarketCompare
+          market={match.market}
+          flagA={match.slotA.rows[0]?.flag || ''}
+          flagB={match.slotB.rows[0]?.flag || ''}
+        />
+      )}
     </div>
   );
 }

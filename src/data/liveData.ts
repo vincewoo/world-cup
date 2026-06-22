@@ -20,10 +20,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  DEFAULT_RESULTS, FIX, GKEYS, GROUPS, SLOTS, FEED, TEAMS,
+  DEFAULT_RESULTS, FIX, GKEYS, GROUPS, SLOTS, FEED,
   assignThirds, currentStandings,
   type Results, type Score, type SlotSideDef,
 } from './wc-data';
+import { pairKey, teamCode } from './teamNames';
 
 export interface LiveSyncResult {
   results: Results;
@@ -50,33 +51,6 @@ const KO_ORDER = [
   73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
   89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 ];
-
-// Aliases for the names football-data.org uses that don't exactly match TEAMS[].n.
-const NAME_ALIASES: Record<string, string> = {
-  'korea republic': 'KOR', 'south korea': 'KOR', 'czech republic': 'CZE',
-  'bosnia and herzegovina': 'BIH', 'bosnia & herzegovina': 'BIH', 'bosnia-herzegovina': 'BIH',
-  usa: 'USA', 'united states': 'USA', turkey: 'TUR', turkiye: 'TUR',
-  "cote d'ivoire": 'CIV', 'ivory coast': 'CIV', 'cabo verde': 'CPV', 'cape verde': 'CPV',
-  'cape verde islands': 'CPV',
-  'ir iran': 'IRN', iran: 'IRN', 'congo dr': 'COD', 'dr congo': 'COD',
-  'democratic republic of congo': 'COD', curacao: 'CUW',
-};
-
-const normalize = (s: string) =>
-  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').trim();
-
-// name -> team code, built once from TEAMS plus the alias table.
-const NAME_INDEX: Record<string, string> = (() => {
-  const idx: Record<string, string> = {};
-  Object.entries(TEAMS).forEach(([code, t]) => { idx[normalize(t.n)] = code; });
-  Object.entries(NAME_ALIASES).forEach(([name, code]) => { idx[normalize(name)] = code; });
-  return idx;
-})();
-
-function teamCode(name: string | undefined | null): string | null {
-  if (!name) return null;
-  return NAME_INDEX[normalize(name)] ?? null;
-}
 
 function cloneResults(src: Results): Results {
   const out: Results = {};
@@ -149,10 +123,6 @@ function applyMatch(results: Results, m: FDMatch, unmatched: Set<string>): boole
   results[g][fi] = cell;
   return true;
 }
-
-// Stable key for an unordered team-code pair. In single-elimination any two
-// teams meet at most once, so a pair uniquely identifies a knockout match.
-const pairKey = (a: string, b: string) => [a, b].sort().join('|');
 
 // Which side won a finished knockout match (after ET / penalties), or null if
 // undecided. Prefers the API's explicit `winner`, falling back to fullTime+pens.

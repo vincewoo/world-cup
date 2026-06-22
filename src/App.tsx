@@ -3,6 +3,7 @@ import { DEFAULT_RESULTS, TEAMS, project, type Projection, type Results, type Sc
 import { cleanup, type VMContext } from './viewmodel';
 import { focusRounds, focusTabLabel } from './rounds';
 import { fetchLiveResults, LIVE_REFRESH_MS, type LiveSyncResult } from './data/liveData';
+import { fetchPolymarketOdds, type PolymarketSync } from './data/polymarketData';
 import { Bracket } from './components/Bracket';
 import { GroupOdds } from './components/GroupOdds';
 import { Hover } from './components/Hover';
@@ -59,6 +60,7 @@ export default function App() {
   const [liveLoading, setLiveLoading] = useState(false);
   const [autoLive, setAutoLive] = useState(false);
   const [lockedSlots, setLockedSlots] = useState<Record<string, string>>({});
+  const [market, setMarket] = useState<PolymarketSync | null>(null);
 
   // Initial load — deferred a frame so the "running simulations" loader paints.
   useEffect(() => {
@@ -109,12 +111,28 @@ export default function App() {
     void syncLive();
   }, [syncLive]);
 
-  // Optional auto-refresh polling.
+  // Polymarket odds — fetched alongside the live feed (graceful on failure).
+  const syncMarket = useCallback(async () => {
+    try {
+      setMarket(await fetchPolymarketOdds());
+    } catch {
+      /* AbortError or unreachable — keep prior odds */
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncMarket();
+  }, [syncMarket]);
+
+  // Optional auto-refresh polling (drives both the results and odds feeds).
   useEffect(() => {
     if (!autoLive) return;
-    const id = setInterval(() => void syncLive(), LIVE_REFRESH_MS);
+    const id = setInterval(() => {
+      void syncLive();
+      void syncMarket();
+    }, LIVE_REFRESH_MS);
     return () => clearInterval(id);
-  }, [autoLive, syncLive]);
+  }, [autoLive, syncLive, syncMarket]);
 
   const pick = useCallback((m: number, id: string) => {
     if (!id) return;
@@ -172,7 +190,7 @@ export default function App() {
     );
   }
 
-  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick, lockedSlots };
+  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick, lockedSlots, market };
   const isBracket = view === 'bracket';
   const champId = picks[104];
   const champ = champId ? TEAMS[champId] : null;
@@ -192,6 +210,17 @@ export default function App() {
   } else if (live?.error) {
     dot = '#ff7ab8';
     statusText = `${live.error} — using seeded data`;
+  }
+
+  // Polymarket odds status pill content.
+  let mktDot = '#ffd24a';
+  let mktText = 'Market odds: connecting…';
+  if (market?.source === 'live') {
+    mktDot = '#4ee0a0';
+    mktText = `Polymarket · ${market.count} markets · ${market.fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (market?.error) {
+    mktDot = '#ff7ab8';
+    mktText = `Market odds unavailable (${market.error})`;
   }
 
   return (
@@ -215,6 +244,11 @@ export default function App() {
               <span style={{ fontSize: 24, lineHeight: 1 }}>{champ ? champ.f : '🏆'}</span>
               <span style={{ font: "700 19px/1 'Space Grotesk'", color: champ ? '#f4f7fb' : '#697283' }}>{champ ? champ.n : '—'}</span>
             </div>
+            {champId && market?.champion[champId] && (
+              <div style={{ marginTop: 5, font: "600 10px/1 'Space Grotesk'", color: '#6f93b0' }}>
+                Polymarket title odds: {Math.round(market.champion[champId].pct)}%
+              </div>
+            )}
           </div>
           <Hover
             as="button"
@@ -275,10 +309,14 @@ export default function App() {
         <button onClick={() => setAutoLive((v) => !v)} style={rTab(autoLive, '#4ee0a0')}>
           {autoLive ? 'Auto-refresh: on' : 'Auto-refresh: off'}
         </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#101319', border: '1px solid #20242e', borderRadius: 999, padding: '6px 12px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: mktDot, flex: 'none' }} />
+          <span style={{ font: "600 11px/1 'Space Grotesk'", color: '#aeb6c6' }}>{mktText}</span>
+        </div>
       </div>
 
       {/* VIEWS */}
-      {isBracket ? <Bracket ctx={ctx} layout={layout} focus={focus} /> : <GroupOdds results={results} proj={proj} setScore={setScore} />}
+      {isBracket ? <Bracket ctx={ctx} layout={layout} focus={focus} /> : <GroupOdds results={results} proj={proj} setScore={setScore} market={market} />}
 
       <div style={{ padding: '6px 28px 24px', font: "500 11px/1.5 'Space Grotesk'", color: '#5a6373', maxWidth: 760 }}>{FOOTNOTE}</div>
     </div>

@@ -1,5 +1,7 @@
 import { type CSSProperties } from 'react';
 import { currentStandings, FIX, FIX_MD, GROUPS, TEAMS, type Projection, type Results, type Score } from '../data/wc-data';
+import { pairKey } from '../data/teamNames';
+import type { PolymarketSync } from '../data/polymarketData';
 
 const colHead: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, padding: '0 6px 5px',
@@ -8,13 +10,19 @@ const colHead: CSSProperties = {
 const num: CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
 function FixtureRow({
-  g, fi, results, setScore,
-}: { g: string; fi: number; results: Results; setScore: (g: string, fi: number, v: Score) => void }) {
+  g, fi, results, setScore, market,
+}: { g: string; fi: number; results: Results; setScore: (g: string, fi: number, v: Score) => void; market?: PolymarketSync | null }) {
   const ids = GROUPS[g];
   const pair = FIX[fi];
   const res = results[g][fi];
   const hi = ids[pair[0]], ai = ids[pair[1]];
   const has = !!res;
+
+  // Polymarket moneyline for this fixture, oriented home→away (display only).
+  const mk = market?.moneyline[pairKey(hi, ai)];
+  const ml = mk
+    ? { pHome: mk.teamA === hi ? mk.pA : mk.pB, pAway: mk.teamA === hi ? mk.pB : mk.pA, pDraw: mk.pDraw }
+    : null;
 
   const stepStyle: CSSProperties = {
     width: 17, height: 17, borderRadius: 5, border: '1px solid #2a2f3b', background: '#1b1f28',
@@ -33,40 +41,54 @@ function FixtureRow({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ font: "600 8px/1 'Space Grotesk'", color: '#5a6373', width: 22, flex: 'none' }}>MD{FIX_MD[fi]}</span>
-      <span style={{ ...nameStyle, textAlign: 'right' }}>{TEAMS[hi].n}</span>
-      <span style={{ fontSize: 13, flex: 'none' }}>{TEAMS[hi].f}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 'none' }}>
-        <button onClick={has ? () => set(Math.max(0, res!.h - 1), res!.a) : undefined} style={stepStyle}>−</button>
-        <span style={scoreStyle}>{has ? res!.h : '–'}</span>
-        <button onClick={has ? () => set(res!.h + 1, res!.a) : undefined} style={stepStyle}>+</button>
-        <span style={{ font: "600 10px/1 'Space Grotesk'", color: '#5a6373' }}>:</span>
-        <button onClick={has ? () => set(res!.h, Math.max(0, res!.a - 1)) : undefined} style={stepStyle}>−</button>
-        <span style={scoreStyle}>{has ? res!.a : '–'}</span>
-        <button onClick={has ? () => set(res!.h, res!.a + 1) : undefined} style={stepStyle}>+</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ font: "600 8px/1 'Space Grotesk'", color: '#5a6373', width: 22, flex: 'none' }}>MD{FIX_MD[fi]}</span>
+        <span style={{ ...nameStyle, textAlign: 'right' }}>{TEAMS[hi].n}</span>
+        <span style={{ fontSize: 13, flex: 'none' }}>{TEAMS[hi].f}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 'none' }}>
+          <button onClick={has ? () => set(Math.max(0, res!.h - 1), res!.a) : undefined} style={stepStyle}>−</button>
+          <span style={scoreStyle}>{has ? res!.h : '–'}</span>
+          <button onClick={has ? () => set(res!.h + 1, res!.a) : undefined} style={stepStyle}>+</button>
+          <span style={{ font: "600 10px/1 'Space Grotesk'", color: '#5a6373' }}>:</span>
+          <button onClick={has ? () => set(res!.h, Math.max(0, res!.a - 1)) : undefined} style={stepStyle}>−</button>
+          <span style={scoreStyle}>{has ? res!.a : '–'}</span>
+          <button onClick={has ? () => set(res!.h, res!.a + 1) : undefined} style={stepStyle}>+</button>
+        </div>
+        <span style={{ fontSize: 13, flex: 'none' }}>{TEAMS[ai].f}</span>
+        <span style={nameStyle}>{TEAMS[ai].n}</span>
+        <button
+          onClick={() => (has ? setScore(g, fi, null) : setScore(g, fi, { h: 0, a: 0 }))}
+          style={{
+            width: 18, height: 18, flex: 'none', borderRadius: 5, border: '1px solid #2a2f3b',
+            background: 'transparent', color: has ? '#737d90' : '#4ee0a0',
+            font: "700 12px/1 'Space Grotesk'", cursor: 'pointer', padding: 0,
+          }}
+        >
+          {has ? '×' : '+'}
+        </button>
       </div>
-      <span style={{ fontSize: 13, flex: 'none' }}>{TEAMS[ai].f}</span>
-      <span style={nameStyle}>{TEAMS[ai].n}</span>
-      <button
-        onClick={() => (has ? setScore(g, fi, null) : setScore(g, fi, { h: 0, a: 0 }))}
-        style={{
-          width: 18, height: 18, flex: 'none', borderRadius: 5, border: '1px solid #2a2f3b',
-          background: 'transparent', color: has ? '#737d90' : '#4ee0a0',
-          font: "700 12px/1 'Space Grotesk'", cursor: 'pointer', padding: 0,
-        }}
-      >
-        {has ? '×' : '+'}
-      </button>
+      {ml && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          font: "600 9px/1 'Space Grotesk'", color: '#6f93b0', paddingBottom: 2,
+        }}>
+          <span style={{ color: '#5a6373', letterSpacing: '.06em' }}>MKT</span>
+          <span>{Math.round(ml.pHome)}%</span>
+          <span style={{ color: '#5a6373' }}>· D {Math.round(ml.pDraw)}% ·</span>
+          <span>{Math.round(ml.pAway)}%</span>
+        </div>
+      )}
     </div>
   );
 }
 
 export function GroupOdds({
-  results, proj, setScore,
-}: { results: Results; proj: Projection; setScore: (g: string, fi: number, v: Score) => void }) {
+  results, proj, setScore, market,
+}: { results: Results; proj: Projection; setScore: (g: string, fi: number, v: Score) => void; market?: PolymarketSync | null }) {
   const stand = currentStandings(results);
   const tp = proj.teamProb;
+  const hasMarket = market?.source === 'live' && Object.keys(market.advance).length > 0;
 
   return (
     <div style={{ padding: '14px 28px 44px' }}>
@@ -93,12 +115,18 @@ export function GroupOdds({
                   <span style={{ width: 26, textAlign: 'center', flex: 'none' }}>Pld</span>
                   <span style={{ width: 30, textAlign: 'center', flex: 'none' }}>GD</span>
                   <span style={{ width: 24, textAlign: 'center', flex: 'none' }}>Pts</span>
-                  <span style={{ width: 54, textAlign: 'right', flex: 'none' }}>Advance</span>
+                  <span style={{ width: 54, textAlign: 'right', flex: 'none' }}>Model</span>
+                  {hasMarket && <span style={{ width: 58, textAlign: 'right', flex: 'none' }}>Market</span>}
                 </div>
                 {grp.rows.map((r) => {
                   const adv = tp[r.id].adv, clin = adv > 99.99;
                   const advColor = clin ? '#63e06f' : adv >= 60 ? '#aeb6c6' : adv >= 25 ? '#8a93a6' : '#6a7488';
                   const cut = r.pos <= 2;
+                  // Market advance % and its divergence from the model.
+                  const mAdv = market?.advance[r.id]?.pct;
+                  const diff = mAdv != null ? mAdv - adv : null;
+                  const diffColor = diff == null ? '#6a7488'
+                    : Math.abs(diff) < 5 ? '#828b9d' : diff > 0 ? '#4ee0a0' : '#ff7ab8';
                   return (
                     <div
                       key={r.id}
@@ -123,6 +151,12 @@ export function GroupOdds({
                       <span style={{ width: 54, textAlign: 'right', flex: 'none', font: "700 12px/1 'Space Grotesk'", color: advColor, ...num }}>
                         {clin ? '✓ in' : adv < 1 ? '<1%' : Math.round(adv) + '%'}
                       </span>
+                      {hasMarket && (
+                        <span style={{ width: 58, textAlign: 'right', flex: 'none', font: "700 11px/1 'Space Grotesk'", color: diffColor, ...num }}
+                          title={diff != null ? `Market ${Math.round(mAdv!)}% vs model ${Math.round(adv)}%` : 'No market'}>
+                          {mAdv == null ? '–' : `${Math.round(mAdv)}%${diff != null && Math.abs(diff) >= 5 ? ` ${diff > 0 ? '▲' : '▼'}${Math.round(Math.abs(diff))}` : ''}`}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -130,7 +164,7 @@ export function GroupOdds({
 
               <div style={{ marginTop: 10, borderTop: '1px solid #20242e', paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {FIX.map((_, fi) => (
-                  <FixtureRow key={fi} g={grp.g} fi={fi} results={results} setScore={setScore} />
+                  <FixtureRow key={fi} g={grp.g} fi={fi} results={results} setScore={setScore} market={market} />
                 ))}
               </div>
             </div>

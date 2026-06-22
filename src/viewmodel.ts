@@ -5,6 +5,8 @@ import {
   FEED, SLOTS, TEAMS, VENUES, sideLabel, simGoals,
   type Projection, type SlotDef,
 } from './data/wc-data';
+import { pairKey } from './data/teamNames';
+import type { PolymarketSync } from './data/polymarketData';
 import type { MatchView, Picks, RawRow, SlotView } from './types';
 
 export interface VMContext {
@@ -14,6 +16,8 @@ export interface VMContext {
   pick: (m: number, id: string) => void;
   /** Confirmed R32 matchups from the live feed: slot-side key → team code. */
   lockedSlots?: Record<string, string>;
+  /** Live Polymarket odds (graceful absence when the feed is unavailable). */
+  market?: PolymarketSync | null;
 }
 
 export function matchTeams(m: number, picks: Picks): [string | null, string | null] {
@@ -113,6 +117,7 @@ export function matchView(m: number, ctx: VMContext): MatchView {
 
   // For knockout matches: when both teams are determined, compute ELO-based
   // win probabilities so the user sees each side's chance in the matchup.
+  let market: MatchView['market'];
   if (m > 88) {
     const rowA = slotA.rows[0], rowB = slotB.rows[0];
     if (rowA?.id && rowB?.id && !rowA.placeholder && !rowB.placeholder) {
@@ -121,6 +126,20 @@ export function matchView(m: number, ctx: VMContext): MatchView {
       rowA.bar = true;
       rowB.prob = 100 - pA;
       rowB.bar = true;
+
+      // Market vs model: attach the Polymarket moneyline if one exists for this
+      // exact pairing (only scheduled/locked knockout matches will have one).
+      const mk = ctx.market?.moneyline[pairKey(rowA.id, rowB.id)];
+      if (mk) {
+        const aIsTeamA = mk.teamA === rowA.id;
+        market = {
+          pA: aIsTeamA ? mk.pA : mk.pB,
+          pB: aIsTeamA ? mk.pB : mk.pA,
+          pDraw: mk.pDraw,
+          modelA: pA,
+          modelB: 100 - pA,
+        };
+      }
     }
   }
 
@@ -128,6 +147,6 @@ export function matchView(m: number, ctx: VMContext): MatchView {
   const highlight = slotA.rows.concat(slotB.rows).some((r) => r.picked);
   return {
     headerLeft: v.c || '', headerDate: v.d || '', headerRight,
-    slotA, slotB, highlight, pickColor: ctx.pickColor || '#63e06f',
+    slotA, slotB, highlight, pickColor: ctx.pickColor || '#63e06f', market,
   };
 }

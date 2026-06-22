@@ -19,9 +19,23 @@ import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.PORT) || 8080;
 const TOKEN = process.env.FOOTBALL_DATA_TOKEN || '';
-const API_BASE = 'https://api.football-data.org/v4';
-const PREFIX = '/api/football-data';
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
+
+// Upstreams proxied under /api/*. football-data needs a token header; the
+// Polymarket Gamma API is public (no key) — both just sidestep CORS. The
+// Polymarket host must be on the network egress allowlist for fetches to land.
+const UPSTREAMS = [
+  {
+    prefix: '/api/football-data',
+    base: 'https://api.football-data.org/v4',
+    headers: TOKEN ? { Accept: 'application/json', 'X-Auth-Token': TOKEN } : { Accept: 'application/json' },
+  },
+  {
+    prefix: '/api/polymarket',
+    base: 'https://gamma-api.polymarket.com',
+    headers: { Accept: 'application/json' },
+  },
+];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -42,13 +56,13 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 };
 
-// Forward an /api/football-data/* request to the real API with the token header.
-async function proxyApi(req, res, path) {
-  const target = API_BASE + path.slice(PREFIX.length);
+// Forward an /api/* request to its upstream, injecting that upstream's headers.
+async function proxyApi(req, res, path, up) {
+  const target = up.base + path.slice(up.prefix.length);
   try {
     const upstream = await fetch(target, {
       method: req.method,
-      headers: TOKEN ? { Accept: 'application/json', 'X-Auth-Token': TOKEN } : { Accept: 'application/json' },
+      headers: up.headers,
     });
     const body = Buffer.from(await upstream.arrayBuffer());
     res.writeHead(upstream.status, {
@@ -92,8 +106,9 @@ async function serveStatic(req, res, urlPath) {
 
 const server = createServer((req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
-  if (urlPath === PREFIX || urlPath.startsWith(PREFIX + '/')) {
-    void proxyApi(req, res, req.url || PREFIX);
+  const up = UPSTREAMS.find((u) => urlPath === u.prefix || urlPath.startsWith(u.prefix + '/'));
+  if (up) {
+    void proxyApi(req, res, req.url || up.prefix, up);
   } else {
     void serveStatic(req, res, urlPath);
   }
