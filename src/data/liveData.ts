@@ -54,9 +54,10 @@ const KO_ORDER = [
 // Aliases for the names football-data.org uses that don't exactly match TEAMS[].n.
 const NAME_ALIASES: Record<string, string> = {
   'korea republic': 'KOR', 'south korea': 'KOR', 'czech republic': 'CZE',
-  'bosnia and herzegovina': 'BIH', 'bosnia & herzegovina': 'BIH',
+  'bosnia and herzegovina': 'BIH', 'bosnia & herzegovina': 'BIH', 'bosnia-herzegovina': 'BIH',
   usa: 'USA', 'united states': 'USA', turkey: 'TUR', turkiye: 'TUR',
   "cote d'ivoire": 'CIV', 'ivory coast': 'CIV', 'cabo verde': 'CPV', 'cape verde': 'CPV',
+  'cape verde islands': 'CPV',
   'ir iran': 'IRN', iran: 'IRN', 'congo dr': 'COD', 'dr congo': 'COD',
   'democratic republic of congo': 'COD', curacao: 'CUW',
 };
