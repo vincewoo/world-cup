@@ -299,10 +299,13 @@ export function foldAdvanceEvent(events: PMEvent[], out: PolymarketSync): number
   let n = 0;
   for (const ev of events) {
     for (const m of ev.markets ?? []) {
-      if (m.closed) continue;
+      // NB: don't skip closed markets here. When a team clinches (or is
+      // eliminated) its advance market *resolves* — outcomePrices go to
+      // ["1","0"]/["0","1"] and it's marked closed — and that resolved 100%/0%
+      // is exactly the authoritative value we want, not a reason to drop it.
       const outcomes = parseStrArray(m.outcomes);
       const prices = parseStrArray(m.outcomePrices).map((p) => parseFloat(p));
-      if (outcomes.length !== prices.length) continue;
+      if (outcomes.length !== prices.length) continue; // e.g. null prices on unseeded teams
       const yes = yesPrice(outcomes, prices);
       if (yes == null) continue;
       const code = subjectTeam(ev, m);
