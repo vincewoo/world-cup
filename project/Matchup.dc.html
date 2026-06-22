@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;background:#14171e;border:1px solid {{ cardBorder }};border-radius:13px;padding:11px 12px 12px;font-family:'Space Grotesk',sans-serif;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;">
+    <span style="font:700 12px/1 'Space Grotesk';color:#e2e7f0;">{{ headerLeft }}<span style="font:500 11px/1 'Space Grotesk';color:#697283;margin-left:6px;">{{ headerDate }}</span></span>
+    <span style="font:600 10px/1 'Space Grotesk';letter-spacing:.06em;color:#697283;">{{ headerRight }}</span>
+  </div>
+
+  <div style="font:600 9px/1.1 'Space Grotesk';letter-spacing:.06em;color:#7c8597;margin-bottom:5px;">{{ slotA.label }}</div>
+  <sc-for list="{{ slotA.rows }}" as="row" hint-placeholder-count="3">
+    <div onClick="{{ row.onPick }}" style="{{ row.rowStyle }}" style-hover="{{ row.hoverStyle }}">
+      <span style="{{ row.checkStyle }}">✓</span>
+      <span style="font-size:15px;line-height:1;width:20px;text-align:center;flex:none;">{{ row.flag }}</span>
+      <span style="{{ row.nameStyle }}">{{ row.name }}</span>
+      <sc-if value="{{ row.bar }}" hint-placeholder-val="{{ true }}">
+        <div style="width:52px;height:6px;border-radius:3px;background:#222733;overflow:hidden;flex:none;">
+          <div style="{{ row.barStyle }}"></div>
+        </div>
+      </sc-if>
+      <span style="{{ row.rightStyle }}">{{ row.rightLabel }}</span>
+    </div>
+  </sc-for>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:7px 0 6px;">
+    <div style="flex:1;height:1px;background:#20242e;"></div>
+    <span style="font:600 9px/1 'Space Grotesk';letter-spacing:.1em;color:#5a6373;">VS</span>
+    <div style="flex:1;height:1px;background:#20242e;"></div>
+  </div>
+
+  <div style="font:600 9px/1.1 'Space Grotesk';letter-spacing:.06em;color:#7c8597;margin-bottom:5px;">{{ slotB.label }}</div>
+  <sc-for list="{{ slotB.rows }}" as="row" hint-placeholder-count="3">
+    <div onClick="{{ row.onPick }}" style="{{ row.rowStyle }}" style-hover="{{ row.hoverStyle }}">
+      <span style="{{ row.checkStyle }}">✓</span>
+      <span style="font-size:15px;line-height:1;width:20px;text-align:center;flex:none;">{{ row.flag }}</span>
+      <span style="{{ row.nameStyle }}">{{ row.name }}</span>
+      <sc-if value="{{ row.bar }}" hint-placeholder-val="{{ true }}">
+        <div style="width:52px;height:6px;border-radius:3px;background:#222733;overflow:hidden;flex:none;">
+          <div style="{{ row.barStyle }}"></div>
+        </div>
+      </sc-if>
+      <span style="{{ row.rightStyle }}">{{ row.rightLabel }}</span>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:248,&quot;height&quot;:236},&quot;match&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;any&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const m = this.props.match || {};
+    const pickColor = m.pickColor || '#63e06f';
+    const hexA = (h, a) => {
+      h = String(h).replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const n = parseInt(h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+
+    const buildRow = (row) => {
+      const r = row || {};
+      const picked = !!r.picked, ph = !!r.placeholder, clin = !!r.clinched;
+      const base = "display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px;transition:background .12s,box-shadow .12s;user-select:none;margin-bottom:2px;";
+      let rowStyle, hoverStyle = "background:rgba(255,255,255,.04);";
+      if (ph) { rowStyle = base + "cursor:default;opacity:.4;"; hoverStyle = ""; }
+      else if (picked) { rowStyle = base + `cursor:pointer;background:${hexA(pickColor,0.16)};box-shadow:inset 0 0 0 1px ${hexA(pickColor,0.5)};`; hoverStyle = `background:${hexA(pickColor,0.22)};`; }
+      else { rowStyle = base + "cursor:pointer;"; }
+
+      const checkStyle = picked
+        ? "width:11px;flex:none;font:700 10px/1 'Space Grotesk';color:" + pickColor + ";text-align:center;"
+        : "width:11px;flex:none;font-size:0;";
+
+      const nameStyle = "flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:" +
+        (picked || clin ? '700' : '500') + " 13px/1.15 'Space Grotesk';color:" +
+        (ph ? '#6a7488' : (picked ? '#f3f8f4' : '#dde2ec')) + ";";
+
+      let rightLabel = '', rightStyle = "flex:none;font:700 11px/1 'Space Grotesk';font-variant-numeric:tabular-nums;width:40px;text-align:right;";
+      if (clin) { rightLabel = '✓ Clinched'; rightStyle = "flex:none;font:700 9px/1 'Space Grotesk';letter-spacing:.04em;color:" + pickColor + ";width:auto;text-align:right;"; }
+      else if (r.bar) { rightLabel = (r.prob < 1 ? '<1' : Math.round(r.prob)) + '%'; rightStyle += "color:" + (r.prob >= 50 ? '#cfd5e0' : '#828b9d');}
+
+      const barStyle = "height:100%;border-radius:3px;width:" + Math.max(2, Math.round(r.prob || 0)) + "%;background:" +
+        (picked ? pickColor : hexA(pickColor, 0.62)) + ";";
+
+      return {
+        onPick: (r.onPick && !ph) ? r.onPick : null,
+        rowStyle, hoverStyle, checkStyle, nameStyle, rightStyle, rightLabel, barStyle,
+        bar: !!r.bar, flag: r.flag || '', name: r.name || '',
+      };
+    };
+
+    const slotA = m.slotA || { label: '', rows: [] };
+    const slotB = m.slotB || { label: '', rows: [] };
+    return {
+      headerLeft: m.headerLeft || '', headerDate: m.headerDate || '', headerRight: m.headerRight || '',
+      slotA: { label: slotA.label || '', rows: (slotA.rows || []).map(buildRow) },
+      slotB: { label: slotB.label || '', rows: (slotB.rows || []).map(buildRow) },
+      cardBorder: m.highlight ? hexA(pickColor, 0.4) : '#262b36',
+    };
+  }
+}
+</script>
+</body>
+</html>

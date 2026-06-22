@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;background:#0a0c10;}
+    .wc-scroll::-webkit-scrollbar{height:10px;width:10px;}
+    .wc-scroll::-webkit-scrollbar-thumb{background:#2a2f3b;border-radius:5px;}
+    .wc-scroll::-webkit-scrollbar-thumb:hover{background:#39404d;}
+    .wc-scroll::-webkit-scrollbar-track{background:transparent;}
+  </style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(120% 80% at 50% -10%,#15171f 0%,#0a0c10 55%);color:#eef1f6;font-family:'Space Grotesk',sans-serif;padding-bottom:10px;">
+
+  <sc-if value="{{ notReady }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:14px;">
+      <div style="width:30px;height:30px;border-radius:50%;border:3px solid #20242e;border-top-color:#4fc3f7;animation:none;"></div>
+      <div style="font:600 14px/1 'Space Grotesk';letter-spacing:.08em;color:#8a93a6;">Running 3,000 tournament simulations…</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ ready }}" hint-placeholder-val="{{ false }}">
+  <div>
+    <!-- HEADER -->
+    <div style="display:flex;flex-wrap:wrap;gap:18px 24px;align-items:flex-end;justify-content:space-between;padding:24px 28px 0;">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;font:600 11px/1 'Space Grotesk';letter-spacing:.2em;text-transform:uppercase;color:#8a93a6;">
+          <span style="width:7px;height:7px;border-radius:2px;background:#ff7ab8;"></span>
+          <span style="width:7px;height:7px;border-radius:2px;background:#4fc3f7;"></span>
+          <span style="width:7px;height:7px;border-radius:2px;background:#4ee0a0;"></span>
+          FIFA World Cup 2026 · Live projection
+        </div>
+        <h1 style="margin:9px 0 0;font:700 34px/1 'Space Grotesk';letter-spacing:-.025em;color:#f4f7fb;">Bracket Predictor</h1>
+        <div style="margin-top:9px;font:500 12px/1.5 'Space Grotesk';color:#697283;max-width:520px;">{{ subline }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;">
+        <div style="text-align:right;">
+          <div style="font:600 10px/1 'Space Grotesk';letter-spacing:.16em;text-transform:uppercase;color:#737d90;margin-bottom:7px;">Your champion</div>
+          <div style="display:flex;align-items:center;gap:9px;justify-content:flex-end;">
+            <span style="font-size:24px;line-height:1;">{{ champFlag }}</span>
+            <span style="font:700 19px/1 'Space Grotesk';color:{{ champColor }};">{{ champName }}</span>
+          </div>
+        </div>
+        <button onClick="{{ reset }}" style="padding:9px 15px;border-radius:999px;border:1px solid #2a2f3b;background:transparent;color:#aeb6c6;font:600 12px/1 'Space Grotesk';cursor:pointer;" style-hover="background:#1b1f28;color:#eef1f6;">Reset picks</button>
+      </div>
+    </div>
+
+    <!-- CONTROL BAR -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;padding:20px 28px 4px;">
+      <div style="display:flex;gap:5px;background:#101319;border:1px solid #20242e;border-radius:999px;padding:4px;">
+        <sc-for list="{{ viewTabs }}" as="t" hint-placeholder-count="2">
+          <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ isBracket }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:5px;background:#101319;border:1px solid #20242e;border-radius:999px;padding:4px;">
+          <sc-for list="{{ layoutTabs }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showFocusTabs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-left:auto;">
+          <sc-for list="{{ focusTabs }}" as="t" hint-placeholder-count="5">
+            <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- FLOW -->
+    <sc-if value="{{ isFlow }}" hint-placeholder-val="{{ false }}">
+      <div class="wc-scroll" style="overflow-x:auto;padding:20px 28px 36px;">
+        <div style="display:flex;gap:30px;min-width:max-content;align-items:stretch;">
+          <sc-for list="{{ flowColumns }}" as="col" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;min-width:252px;width:252px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:15px;">
+                <span style="width:9px;height:9px;border-radius:2px;background:{{ col.accent }};"></span>
+                <span style="font:600 12px/1 'Space Grotesk';letter-spacing:.16em;text-transform:uppercase;color:#aeb6c6;">{{ col.short }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;justify-content:space-around;flex:1;">
+                <sc-for list="{{ col.matches }}" as="m" hint-placeholder-count="4">
+                  <dc-import name="Matchup" match="{{ m }}" hint-size="252px,240px"></dc-import>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- CLASSIC -->
+    <sc-if value="{{ isClassic }}" hint-placeholder-val="{{ true }}">
+      <div class="wc-scroll" style="overflow-x:auto;padding:20px 28px 36px;">
+        <div style="display:flex;gap:22px;min-width:max-content;align-items:stretch;">
+          <sc-for list="{{ leftColumns }}" as="col" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;min-width:248px;width:248px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:15px;">
+                <span style="width:9px;height:9px;border-radius:2px;background:{{ col.accent }};"></span>
+                <span style="font:600 12px/1 'Space Grotesk';letter-spacing:.16em;text-transform:uppercase;color:#aeb6c6;">{{ col.short }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;justify-content:space-around;flex:1;">
+                <sc-for list="{{ col.matches }}" as="m" hint-placeholder-count="4">
+                  <dc-import name="Matchup" match="{{ m }}" hint-size="248px,240px"></dc-import>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:14px;min-width:250px;width:250px;align-self:center;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span style="width:9px;height:9px;border-radius:2px;background:#ff7ab8;"></span>
+              <span style="font:600 12px/1 'Space Grotesk';letter-spacing:.18em;text-transform:uppercase;color:#ff7ab8;">Final</span>
+            </div>
+            <dc-import name="Matchup" match="{{ finalView }}" hint-size="248px,200px"></dc-import>
+            <div style="border-radius:16px;border:1px solid #2a2f3b;background:linear-gradient(180deg,#1a1e27,#14171e);padding:16px;text-align:center;box-shadow:0 0 0 1px rgba(255,210,74,.06),0 14px 40px -18px rgba(255,210,74,.25);">
+              <div style="font:600 10px/1 'Space Grotesk';letter-spacing:.18em;text-transform:uppercase;color:#ffd24a;margin-bottom:10px;">Champion</div>
+              <div style="font-size:40px;line-height:1;">{{ champFlag }}</div>
+              <div style="font:700 20px/1.1 'Space Grotesk';margin-top:8px;color:{{ champColor }};">{{ champName }}</div>
+            </div>
+            <div style="font:600 10px/1 'Space Grotesk';letter-spacing:.16em;text-transform:uppercase;color:#697283;text-align:center;margin-top:2px;">Third place</div>
+            <dc-import name="Matchup" match="{{ thirdView }}" hint-size="248px,200px"></dc-import>
+          </div>
+
+          <sc-for list="{{ rightColumns }}" as="col" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;min-width:248px;width:248px;">
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:15px;">
+                <span style="font:600 12px/1 'Space Grotesk';letter-spacing:.16em;text-transform:uppercase;color:#aeb6c6;">{{ col.short }}</span>
+                <span style="width:9px;height:9px;border-radius:2px;background:{{ col.accent }};"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;justify-content:space-around;flex:1;">
+                <sc-for list="{{ col.matches }}" as="m" hint-placeholder-count="4">
+                  <dc-import name="Matchup" match="{{ m }}" hint-size="248px,240px"></dc-import>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- FOCUS -->
+    <sc-if value="{{ isFocus }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:12px 28px 40px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <span style="width:10px;height:10px;border-radius:2px;background:{{ focusAccent }};"></span>
+          <span style="font:700 18px/1 'Space Grotesk';color:#f4f7fb;">{{ focusName }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:16px;max-width:1160px;">
+          <sc-for list="{{ focusMatches }}" as="m" hint-placeholder-count="8">
+            <dc-import name="Matchup" match="{{ m }}" hint-size="100%,240px"></dc-import>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- GROUPS -->
+    <sc-if value="{{ isGroups }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px 28px 44px;">
+        <div style="font:500 12px/1.5 'Space Grotesk';color:#697283;max-width:680px;margin-bottom:18px;">Each team's chance to advance, from 3,000 simulations of the remaining group games. Tap a score to edit it — every probability and the bracket update instantly. Green = clinched.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;">
+          <sc-for list="{{ groupsView }}" as="grp" hint-placeholder-count="12">
+            <div style="background:#14171e;border:1px solid #262b36;border-radius:14px;padding:14px 14px 12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <span style="font:700 14px/1 'Space Grotesk';color:#f4f7fb;">Group {{ grp.g }}</span>
+                <span style="font:600 9px/1 'Space Grotesk';letter-spacing:.12em;text-transform:uppercase;color:#697283;">{{ grp.played }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="display:flex;align-items:center;gap:8px;padding:0 6px 5px;font:600 8px/1 'Space Grotesk';letter-spacing:.1em;text-transform:uppercase;color:#5a6373;">
+                  <span style="width:18px;flex:none;"></span><span style="flex:1;">Team</span>
+                  <span style="width:26px;text-align:center;flex:none;">Pld</span><span style="width:30px;text-align:center;flex:none;">GD</span>
+                  <span style="width:24px;text-align:center;flex:none;">Pts</span><span style="width:54px;text-align:right;flex:none;">Advance</span>
+                </div>
+                <sc-for list="{{ grp.rows }}" as="r" hint-placeholder-count="4">
+                  <div style="{{ r.rowStyle }}">
+                    <span style="font-size:15px;line-height:1;width:18px;text-align:center;flex:none;">{{ r.flag }}</span>
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 12px/1.1 'Space Grotesk';color:{{ r.nameColor }};">{{ r.name }}</span>
+                    <span style="width:26px;text-align:center;flex:none;font:500 11px/1 'Space Grotesk';color:#737d90;font-variant-numeric:tabular-nums;">{{ r.pld }}</span>
+                    <span style="width:30px;text-align:center;flex:none;font:500 11px/1 'Space Grotesk';color:#8a93a6;font-variant-numeric:tabular-nums;">{{ r.gd }}</span>
+                    <span style="width:24px;text-align:center;flex:none;font:700 12px/1 'Space Grotesk';color:#e2e7f0;font-variant-numeric:tabular-nums;">{{ r.pts }}</span>
+                    <span style="width:54px;text-align:right;flex:none;font:700 12px/1 'Space Grotesk';color:{{ r.advColor }};font-variant-numeric:tabular-nums;">{{ r.advLabel }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="margin-top:10px;border-top:1px solid #20242e;padding-top:9px;display:flex;flex-direction:column;gap:5px;">
+                <sc-for list="{{ grp.fixtures }}" as="fx" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font:600 8px/1 'Space Grotesk';color:#5a6373;width:22px;flex:none;">{{ fx.md }}</span>
+                    <span style="flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:500 11px/1 'Space Grotesk';color:#aeb6c6;">{{ fx.homeName }}</span>
+                    <span style="font-size:13px;flex:none;">{{ fx.homeFlag }}</span>
+                    <div style="display:flex;align-items:center;gap:3px;flex:none;">
+                      <button onClick="{{ fx.decH }}" style="{{ fx.stepStyle }}">−</button>
+                      <span style="{{ fx.scoreStyle }}">{{ fx.homeScore }}</span>
+                      <button onClick="{{ fx.incH }}" style="{{ fx.stepStyle }}">+</button>
+                      <span style="font:600 10px/1 'Space Grotesk';color:#5a6373;">:</span>
+                      <button onClick="{{ fx.decA }}" style="{{ fx.stepStyle }}">−</button>
+                      <span style="{{ fx.scoreStyle }}">{{ fx.awayScore }}</span>
+                      <button onClick="{{ fx.incA }}" style="{{ fx.stepStyle }}">+</button>
+                    </div>
+                    <span style="font-size:13px;flex:none;">{{ fx.awayFlag }}</span>
+                    <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:500 11px/1 'Space Grotesk';color:#aeb6c6;">{{ fx.awayName }}</span>
+                    <button onClick="{{ fx.toggle }}" style="{{ fx.toggleStyle }}">{{ fx.toggleLabel }}</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="padding:6px 28px 24px;font:500 11px/1.5 'Space Grotesk';color:#5a6373;max-width:760px;">{{ footnote }}</div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showProb&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;pickColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#63e06f&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { ready:false, results:null, proj:null, picks:{}, overrides:{}, layout:'classic', view:'bracket', focus:0, menu:null };
+
+  componentDidMount(){
+    import('./wc-data.js').then(WC=>{
+      this.WC = WC;
+      const results = {}; Object.keys(WC.DEFAULT_RESULTS).forEach(g=> results[g]=WC.DEFAULT_RESULTS[g].map(x=>x?{...x}:null));
+      this.setState({ ready:true, results, proj: WC.project(results) });
+    });
+  }
+
+  recompute(results){ return this.WC.project(results); }
+  winProb(a,b){ if(!a||!b) return null; return Math.round(100/(1+Math.pow(10,(this.WC.TEAMS[b].r-this.WC.TEAMS[a].r)/280))); }
+
+  matchTeams(m,picks){
+    picks=picks||this.state.picks;
+    const [s1,s2]=this.WC.FEED[m]||[];
+    if(m===103) return [this.loserOf(s1,picks), this.loserOf(s2,picks)];
+    return [picks[s1]||null, picks[s2]||null];
+  }
+  loserOf(m,picks){
+    const [a,b]=this.matchTeams(m,picks); const w=picks[m];
+    if(!w) return null; return w===a?b:(w===b?a:null);
+  }
+  cleanup(picks){
+    [89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104].forEach(m=>{
+      const [s1,s2]=this.WC.FEED[m];
+      const valid = m===103 ? [this.loserOf(s1,picks),this.loserOf(s2,picks)] : [picks[s1]||null, picks[s2]||null];
+      if(picks[m] && !valid.includes(picks[m])) delete picks[m];
+    });
+  }
+  pick(m,id){
+    if(!id) return;
+    this.setState(s=>{
+      const picks={...s.picks};
+      if(picks[m]===id) delete picks[m]; else picks[m]=id;
+      this.cleanup(picks);
+      return {picks};
+    });
+  }
+  reset(){ this.setState({picks:{}}); }
+  setScore(g,fi,val){
+    const results={}; Object.keys(this.state.results).forEach(k=> results[k]=this.state.results[k].map(x=>x?{...x}:null));
+    results[g][fi]=val;
+    const proj=this.recompute(results);
+    this.setState({results,proj},()=>{ this.setState(s=>{ const p={...s.picks}; this.cleanup(p); return {picks:p}; }); });
+  }
+
+  rowOf(m,id,prob,clinched){
+    const t=this.WC.TEAMS[id];
+    return { id, flag:t.f, name:t.n, prob, bar:(prob!=null && !clinched), clinched,
+      picked:this.state.picks[m]===id, onPick:()=>this.pick(m,id) };
+  }
+  slotR32(m,side){
+    const def=this.WC.SLOTS.find(s=>s.m===m)[side==='A'?'a':'b'];
+    const ss=this.state.proj.slotSide[m+side];
+    let rows=[];
+    if(ss){
+      if(ss.clinched) rows=[ this.rowOf(m, ss.clinched, null, true) ];
+      else rows=ss.candidates.slice(0,3).map(c=>this.rowOf(m, c.id, c.prob, false));
+    }
+    return { label:this.WC.sideLabel(def), rows };
+  }
+  slotKO(m,side){
+    const src=this.WC.FEED[m][side==='A'?0:1];
+    const id = m===103 ? this.loserOf(src,this.state.picks) : (this.state.picks[src]||null);
+    const t=id?this.WC.TEAMS[id]:null;
+    const rows=[ id
+      ? { id, flag:t.f, name:t.n, prob:null, bar:false, clinched:false, picked:this.state.picks[m]===id, onPick:()=>this.pick(m,id) }
+      : { placeholder:true, name:(m===103?'Loser ':'Winner ')+'Match '+src } ];
+    return { label:'', rows };
+  }
+  matchView(m){
+    const v=this.WC.VENUES[m]||{};
+    const slotA = m<=88 ? this.slotR32(m,'A') : this.slotKO(m,'A');
+    const slotB = m<=88 ? this.slotR32(m,'B') : this.slotKO(m,'B');
+    const headerRight = m===104?'Final':(m===103?'3rd place':'Match '+m);
+    const highlight = slotA.rows.concat(slotB.rows).some(r=>r.picked);
+    return {
+      headerLeft:v.c||'', headerDate:v.d||'', headerRight,
+      slotA, slotB, highlight,
+      pickColor:this.props.pickColor||'#63e06f',
+    };
+  }
+
+  renderVals(){
+    if(!this.state.ready || !this.state.proj) return { notReady:true, ready:false };
+    const A='#b98cff', C='#4fc3f7', Q='#4ee0a0', S='#ffd24a', F='#ff7ab8';
+    const mv=m=>this.matchView(m);
+    const layout=this.state.layout, view=this.state.view;
+
+    const flowColumns=[
+      {short:'Round of 32',accent:A,matches:[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88].map(mv)},
+      {short:'Round of 16',accent:C,matches:[89,90,91,92,93,94,95,96].map(mv)},
+      {short:'Quarter-finals',accent:Q,matches:[97,98,99,100].map(mv)},
+      {short:'Semi-finals',accent:S,matches:[101,102].map(mv)},
+      {short:'Final',accent:F,matches:[104,103].map(mv)},
+    ];
+    const leftColumns=[
+      {short:'R32',accent:A,matches:[74,77,73,75,83,84,81,82].map(mv)},
+      {short:'R16',accent:C,matches:[89,90,93,94].map(mv)},
+      {short:'QF',accent:Q,matches:[97,98].map(mv)},
+      {short:'SF',accent:S,matches:[101].map(mv)},
+    ];
+    const rightColumns=[
+      {short:'SF',accent:S,matches:[102].map(mv)},
+      {short:'QF',accent:Q,matches:[99,100].map(mv)},
+      {short:'R16',accent:C,matches:[91,92,95,96].map(mv)},
+      {short:'R32',accent:A,matches:[76,78,79,80,86,88,85,87].map(mv)},
+    ];
+    const focusRounds=[
+      {name:'Round of 32',accent:A,ms:[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88]},
+      {name:'Round of 16',accent:C,ms:[89,90,91,92,93,94,95,96]},
+      {name:'Quarter-finals',accent:Q,ms:[97,98,99,100]},
+      {name:'Semi-finals',accent:S,ms:[101,102]},
+      {name:'Final & Third place',accent:F,ms:[104,103]},
+    ];
+    const fr=focusRounds[this.state.focus];
+
+    // Groups view
+    const stand=this.WC.currentStandings(this.state.results);
+    const tp=this.state.proj.teamProb;
+    const groupsView=stand.map(grp=>{
+      const playedN=this.state.results[grp.g].filter(Boolean).length;
+      const rows=grp.rows.map(r=>{
+        const adv=tp[r.id].adv, clin=adv>99.99, p1=tp[r.id].p1;
+        const advColor = clin?'#63e06f' : adv>=60?'#aeb6c6' : adv>=25?'#8a93a6' : '#6a7488';
+        const cut = r.pos<=2;
+        return {
+          flag:this.WC.TEAMS[r.id].f, name:this.WC.TEAMS[r.id].n, pld:r.pld,
+          gd:(r.gd>0?'+':'')+r.gd, pts:r.pts,
+          advLabel: clin?'✓ in':(adv<1?'<1%':Math.round(adv)+'%'),
+          advColor, nameColor: r.pos<=2?'#f4f7fb':(r.pos===3?'#cfd5e0':'#8a93a6'),
+          rowStyle:"display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;"+(cut?"background:rgba(99,224,111,.06);":""),
+        };
+      });
+      const ids=this.WC.GROUPS[grp.g];
+      const fixtures=this.WC.FIX.map((pair,fi)=>{
+        const res=this.state.results[grp.g][fi];
+        const hi=ids[pair[0]], ai=ids[pair[1]];
+        const has=!!res;
+        const stepStyle="width:17px;height:17px;border-radius:5px;border:1px solid #2a2f3b;background:#1b1f28;color:#aeb6c6;font:700 11px/1 'Space Grotesk';cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;"+(has?'':'opacity:.35;pointer-events:none;');
+        const scoreStyle="min-width:14px;text-align:center;font:700 13px/1 'Space Grotesk';font-variant-numeric:tabular-nums;color:"+(has?'#eef1f6':'#4a525f')+";";
+        const set=(h,a)=>this.setScore(grp.g,fi,{h,a});
+        return {
+          md:'MD'+this.WC.FIX_MD[fi],
+          homeName:this.WC.TEAMS[hi].n, homeFlag:this.WC.TEAMS[hi].f,
+          awayName:this.WC.TEAMS[ai].n, awayFlag:this.WC.TEAMS[ai].f,
+          homeScore:has?res.h:'–', awayScore:has?res.a:'–',
+          stepStyle, scoreStyle,
+          incH:has?(()=>set(res.h+1,res.a)):null, decH:has?(()=>set(Math.max(0,res.h-1),res.a)):null,
+          incA:has?(()=>set(res.h,res.a+1)):null, decA:has?(()=>set(res.h,Math.max(0,res.a-1))):null,
+          toggle: has?(()=>this.setScore(grp.g,fi,null)):(()=>this.setScore(grp.g,fi,{h:0,a:0})),
+          toggleLabel: has?'×':'+',
+          toggleStyle:"width:18px;height:18px;flex:none;border-radius:5px;border:1px solid #2a2f3b;background:transparent;color:"+(has?'#737d90':'#4ee0a0')+";font:700 12px/1 'Space Grotesk';cursor:pointer;padding:0;",
+        };
+      });
+      return {g:grp.g, played:playedN+' / 6 played', rows, fixtures};
+    });
+
+    const tabStyle=(on)=>"padding:8px 15px;border-radius:999px;border:1px solid "+(on?'#3a4150':'transparent')+";background:"+(on?'#1b1f28':'transparent')+";color:"+(on?'#eef1f6':'#8a93a6')+";font:600 13px/1 'Space Grotesk';cursor:pointer;transition:all .12s;";
+    const viewTabs=[{k:'bracket',l:'Bracket'},{k:'groups',l:'Group odds'}].map(t=>({label:t.l,style:tabStyle(view===t.k),onClick:()=>this.setState({view:t.k})}));
+    const layoutTabs=[{k:'classic',l:'Classic'},{k:'flow',l:'Flow'},{k:'focus',l:'Focus'}].map(t=>({label:t.l,style:tabStyle(layout===t.k),onClick:()=>this.setState({layout:t.k})}));
+    const rTab=(on,acc)=>"padding:7px 13px;border-radius:999px;font:600 12px/1 'Space Grotesk';cursor:pointer;border:1px solid "+(on?acc:'#20242e')+";background:"+(on?acc+'22':'#101319')+";color:"+(on?acc:'#8a93a6')+";";
+    const focusTabs=focusRounds.map((r,i)=>({label:r.name.split(' ')[0]==='Round'?('R'+r.name.match(/\d+/)[0]):(r.name.split(' ')[0]),style:rTab(i===this.state.focus,r.accent),onClick:()=>this.setState({focus:i})}));
+
+    const champId=this.state.picks[104], champ=champId?this.WC.TEAMS[champId]:null;
+    const isBracket=view==='bracket';
+
+    return {
+      ready:true, notReady:false,
+      subline:'Group stage in progress — slots show each team\u2019s chance to land there, from 3,000 simulations. Clinched teams (✓) are locked in; tap any other team to send your pick through.',
+      isBracket, isGroups:view==='groups',
+      isClassic:isBracket&&layout==='classic', isFlow:isBracket&&layout==='flow', isFocus:isBracket&&layout==='focus',
+      showFocusTabs:isBracket&&layout==='focus',
+      viewTabs, layoutTabs, focusTabs,
+      flowColumns, leftColumns, rightColumns,
+      finalView:mv(104), thirdView:mv(103),
+      focusMatches:fr.ms.map(mv), focusName:fr.name, focusAccent:fr.accent,
+      groupsView,
+      champFlag:champ?champ.f:'🏆', champName:champ?champ.n:'—', champColor:champ?'#f4f7fb':'#697283',
+      reset:()=>this.reset(),
+      footnote:'Win % and qualification odds are model estimates (team-rating Monte-Carlo, 3,000 runs), not official. Group results are seeded as of June 21, 2026 and partly approximate — correct any score under “Group odds” to refresh the whole projection. Round-of-32 slot rules follow FIFA\u2019s official bracket; third-placed allocations are approximated.',
+    };
+  }
+}
+</script>
+</body>
+</html>
