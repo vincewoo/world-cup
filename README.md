@@ -73,6 +73,38 @@ behind your own infrastructure, replicate the same rule: forward
 `/api/football-data/*` → `https://api.football-data.org/v4/*` with the
 `X-Auth-Token` header (a serverless function, an Nginx `proxy_pass`, etc.).
 
+## Market odds (Polymarket)
+
+Alongside the model, the app pulls **live, money-backed implied probabilities**
+from Polymarket's public [Gamma API](https://gamma-api.polymarket.com) and shows
+them next to the Monte-Carlo estimate — *"where does the market disagree with the
+model?"*. The adapter (`src/data/polymarketData.ts`) reshapes the events into
+three maps:
+
+- **Moneyline** per fixture (3-way *Team A / Draw / Team B*) — keyed by the same
+  unordered team-pair key as the live feed. Surfaced on each group fixture row
+  and, once both teams lock, under each knockout match card with the model edge.
+- **To advance** per team — shown beside the model's advance % in the Group odds
+  tab, tinted by how far the market diverges (▲ market higher, ▼ lower).
+- **To win the tournament** per team — shown as title odds for your picked champion.
+
+Per-match markets exist only for **scheduled** fixtures (group games now; knockout
+matches once the bracket fills), but the per-team *advance* and *winner* markets
+cover every team regardless of which matchups are decided. Anything without a
+market simply renders nothing — same graceful-degradation as the results feed.
+
+How it works: like football-data, the browser calls a same-origin
+`/api/polymarket/...` path that the dev proxy (`vite.config.ts`) / prod proxy
+(`server/proxy.mjs`) forward to the Gamma API. The Gamma API is **public — no key
+required**; the proxy only sidesteps CORS. The status pill reports how many
+markets matched, or *"Market odds unavailable"* on failure.
+
+> **Network egress:** `gamma-api.polymarket.com` must be reachable from wherever
+> the proxy runs (dev machine, prod host, or sandbox allowlist). If it's blocked,
+> the feed degrades to "unavailable" and the rest of the app is unaffected. The
+> World Cup event-list query (`tag_slug`) in `polymarketData.ts` should be
+> confirmed against the live API once egress is available.
+
 ## Commands
 
 ```bash

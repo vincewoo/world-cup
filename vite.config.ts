@@ -23,6 +23,14 @@ export default defineConfig(({ mode }) => {
           rewrite: (p) => p.replace(/^\/api\/football-data/, ''),
           headers,
         },
+        // Polymarket Gamma API — public, no key. Proxied to sidestep CORS and to
+        // match the football-data pattern. The host must be on the network
+        // egress allowlist for requests to reach it.
+        '/api/polymarket': {
+          target: 'https://gamma-api.polymarket.com',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/polymarket/, ''),
+        },
       },
     },
   };
