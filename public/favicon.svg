@@ -1,25 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- FIFA World Cup 2026 "Trionda" inspired ball: white base with red, green
-       and blue accents for the three host nations (USA, Mexico, Canada). -->
+  <!-- FIFA World Cup 2026 "Trionda" inspired ball: a white ball with three
+       bold swirling lobes — red, blue and green — arranged in a pinwheel,
+       one for each host nation (USA, Mexico, Canada). -->
   <defs>
     <clipPath id="ball">
       <circle cx="32" cy="32" r="29" />
     </clipPath>
+    <!-- A single swirling lobe, pointing up, sweeping clockwise. -->
+    <path id="lobe"
+      d="M32 32
+         C 24 24, 19 13, 30 7
+         C 41 1, 53 8, 50 21
+         C 48 28, 40 30, 32 32 Z" />
   </defs>
 
   <!-- Ball body -->
-  <circle cx="32" cy="32" r="29" fill="#f7f7f4" stroke="#1a1a1a" stroke-width="2.5" />
+  <circle cx="32" cy="32" r="29" fill="#f7f7f4" stroke="#16213e" stroke-width="2.5" />
 
-  <!-- Tri-onda waves: three colored bands swirling from the centre -->
-  <g clip-path="url(#ball)" stroke-linecap="round" fill="none" stroke-width="6">
-    <!-- red wave -->
-    <path d="M32 32 C 22 22, 10 24, 4 34" stroke="#e4002b" />
-    <!-- green wave -->
-    <path d="M32 32 C 44 24, 58 28, 62 40" stroke="#009639" />
-    <!-- blue wave -->
-    <path d="M32 32 C 30 44, 34 56, 28 66" stroke="#0057b8" />
+  <!-- Three lobes rotated 120° apart around the centre -->
+  <g clip-path="url(#ball)" stroke="#f7f7f4" stroke-width="1.5" stroke-linejoin="round">
+    <use href="#lobe" fill="#e4002b" transform="rotate(0 32 32)" />
+    <use href="#lobe" fill="#0057b8" transform="rotate(120 32 32)" />
+    <use href="#lobe" fill="#009639" transform="rotate(240 32 32)" />
   </g>
 
-  <!-- Central pivot -->
-  <circle cx="32" cy="32" r="4.5" fill="#1a1a1a" />
+  <!-- Central pinwheel hub -->
+  <circle cx="32" cy="32" r="3.5" fill="#f7f7f4" stroke="#16213e" stroke-width="1.5" />
 </svg>
