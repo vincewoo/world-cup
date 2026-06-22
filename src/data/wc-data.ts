@@ -197,7 +197,7 @@ function table(g: string, results: Results, sim: boolean): GroupTable {
 // Assign the (up to 8) advancing third-placed teams to the 8 third slots,
 // respecting each slot's allowed-group set (backtracking, most-constrained first).
 const S3 = SLOTS.filter((s) => s.b.t === '3').map((s) => ({ m: s.m, allow: (s.b as { t: '3'; allow: string[] }).allow }));
-function assignThirds(thirdGroups: string[]): Record<number, string> {
+export function assignThirds(thirdGroups: string[]): Record<number, string> {
   const slots = S3.map((s) => ({ m: s.m, opts: thirdGroups.filter((g) => s.allow.includes(g)) }))
     .sort((x, y) => x.opts.length - y.opts.length);
   const used: Record<string, number> = {}, out: Record<number, string> = {};
