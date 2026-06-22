@@ -40,8 +40,8 @@ const pillGroup: CSSProperties = {
 const FOOTNOTE =
   'Win % and qualification odds are model estimates (team-rating Monte-Carlo, 3,000 runs), not official. ' +
   'Group results are seeded as of June 21, 2026 and partly approximate — correct any score under “Group odds” ' +
-  'to refresh the whole projection. Round-of-32 slot rules follow FIFA’s official bracket; third-placed ' +
-  'allocations are approximated. Once the live feed is connected, confirmed knockout matchups and results ' +
+  'to refresh the whole projection. Round-of-32 slot rules follow FIFA’s official bracket, including the ' +
+  'Annex C best-third allocation table. Once the live feed is connected, confirmed knockout matchups and results ' +
   'are pulled from the API and locked in (replacing the projection round by round).';
 const SUBLINE =
   'Group stage in progress — slots show each team’s chance to land there, from 3,000 simulations. ' +

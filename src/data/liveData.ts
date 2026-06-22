@@ -21,7 +21,7 @@
 
 import {
   DEFAULT_RESULTS, FIX, GKEYS, GROUPS, SLOTS, FEED,
-  assignThirds, currentStandings,
+  assignThirds, compareThirds, currentStandings,
   type Results, type Score, type SlotSideDef,
 } from './wc-data';
 import { pairKey, teamCode } from './teamNames';
@@ -171,7 +171,7 @@ function deriveBracket(results: Results, koByPair: Map<string, string>) {
   let thirdSlotGroup: Record<number, string> = {};
   if (allComplete) {
     const thirds = GKEYS.map((g) => ({ g, ...rows[g][2] }))
-      .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+      .sort(compareThirds);
     const adv = thirds.slice(0, 8);
     adv.forEach((x) => (thirdByGroup[x.g] = x.id));
     thirdSlotGroup = assignThirds(adv.map((x) => x.g)); // match number → group

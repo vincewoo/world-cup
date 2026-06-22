@@ -9,6 +9,8 @@
 // produces exactly this `Results` shape. Fixture order per group is fixed (FIX).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { THIRD_PLACE_TABLE, THIRD_SLOT_ORDER } from './thirdPlaceTable';
+
 export interface Team {
   n: string;
   f: string;
@@ -246,24 +248,18 @@ function table(g: string, results: Results, sim: boolean): GroupTable {
   return { ids, order, pts, gf, ga, pld };
 }
 
-// Assign the (up to 8) advancing third-placed teams to the 8 third slots,
-// respecting each slot's allowed-group set (backtracking, most-constrained first).
-const S3 = SLOTS.filter((s) => s.b.t === '3').map((s) => ({ m: s.m, allow: (s.b as { t: '3'; allow: string[] }).allow }));
+// Assign the 8 advancing third-placed teams to the 8 third slots using FIFA's
+// official Annex C lookup (THIRD_PLACE_TABLE), keyed by the sorted set of the 8
+// groups whose thirds advanced. The per-slot allowed-group sets only bound which
+// groups *can* reach each slot across all scenarios — they leave the per-scenario
+// assignment massively under-determined (every combination admits many valid
+// matchings), so a backtracking matcher would pick an arbitrary, non-official one.
 export function assignThirds(thirdGroups: string[]): Record<number, string> {
-  const slots = S3.map((s) => ({ m: s.m, opts: thirdGroups.filter((g) => s.allow.includes(g)) }))
-    .sort((x, y) => x.opts.length - y.opts.length);
-  const used: Record<string, number> = {}, out: Record<number, string> = {};
-  function bt(k: number): boolean {
-    if (k === slots.length) return true;
-    for (const g of slots[k].opts) {
-      if (used[g]) continue;
-      used[g] = 1; out[slots[k].m] = g;
-      if (bt(k + 1)) return true;
-      used[g] = 0;
-    }
-    return false;
-  }
-  bt(0);
+  const key = [...thirdGroups].sort().join('');
+  const assignment = THIRD_PLACE_TABLE[key];
+  if (!assignment) return {}; // only defined for sets of exactly 8 groups
+  const out: Record<number, string> = {};
+  THIRD_SLOT_ORDER.forEach((m, i) => { out[m] = assignment[i]; });
   return out; // {matchNo: groupKey}
 }
 
@@ -278,6 +274,21 @@ export function currentStandings(results: Results): GroupStanding[] {
       })),
     };
   });
+}
+
+// Rank the 12 third-placed teams to pick the best 8 (FIFA cross-group criteria,
+// head-to-head does NOT apply between groups):
+//   1. points  2. goal difference  3. goals scored
+//   4. fewest team-conduct/disciplinary points   5. FIFA World Ranking
+// (2026 replaced the old "drawing of lots" final step with FIFA World Ranking.)
+// Disciplinary points aren't modelled; the FIFA-ranking step is approximated by
+// team rating, giving one deterministic order shared by the simulation and the
+// live-bracket derivation (previously they diverged: random vs. group order).
+export function compareThirds(
+  a: { id: string; pts: number; gd: number; gf: number },
+  b: { id: string; pts: number; gd: number; gf: number },
+): number {
+  return b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || TEAMS[b.id].r - TEAMS[a.id].r;
 }
 
 export function project(results: Results, runs = 3000): Projection {
@@ -299,7 +310,7 @@ export function project(results: Results, runs = 3000): Projection {
       tp[W[g]].w++; tp[R[g]].r++;
       thirds.push({ g, id: t.ids[o[2]], pts: t.pts[o[2]], gd: t.gf[o[2]] - t.ga[o[2]], gf: t.gf[o[2]] });
     }
-    thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || Math.random() - 0.5);
+    thirds.sort(compareThirds);
     const adv = thirds.slice(0, 8);
     adv.forEach((x) => tp[x.id].t++);
     const assign = assignThirds(adv.map((x) => x.g)); // matchNo -> group
