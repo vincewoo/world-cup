@@ -83,8 +83,8 @@ export const FEED = {
 export const VENUES = {
   73:{c:'Los Angeles',d:'Jun 28'}, 74:{c:'Boston',d:'Jun 29'}, 75:{c:'Monterrey',d:'Jun 29'}, 76:{c:'Houston',d:'Jun 29'},
   77:{c:'New York NJ',d:'Jun 30'}, 78:{c:'Dallas',d:'Jun 30'}, 79:{c:'Mexico City',d:'Jun 30'}, 80:{c:'Atlanta',d:'Jul 1'},
-  81:{c:'Guadalajara',d:'Jul 1'}, 82:{c:'Seattle',d:'Jul 2'}, 83:{c:'San Francisco',d:'Jul 2'}, 84:{c:'Miami',d:'Jul 2'},
-  85:{c:'Kansas City',d:'Jul 3'}, 86:{c:'Vancouver',d:'Jul 3'}, 87:{c:'Toronto',d:'Jul 3'}, 88:{c:'Philadelphia',d:'Jul 3'},
+  81:{c:'San Francisco',d:'Jul 1'}, 82:{c:'Seattle',d:'Jul 1'}, 83:{c:'Toronto',d:'Jul 2'}, 84:{c:'Los Angeles',d:'Jul 2'},
+  85:{c:'Vancouver',d:'Jul 2'}, 86:{c:'Miami',d:'Jul 3'}, 87:{c:'Kansas City',d:'Jul 3'}, 88:{c:'Dallas',d:'Jul 3'},
   89:{c:'Philadelphia',d:'Jul 4'}, 90:{c:'Houston',d:'Jul 4'}, 91:{c:'New York NJ',d:'Jul 5'}, 92:{c:'Mexico City',d:'Jul 5'},
   93:{c:'Dallas',d:'Jul 6'}, 94:{c:'Seattle',d:'Jul 6'}, 95:{c:'Atlanta',d:'Jul 7'}, 96:{c:'Vancouver',d:'Jul 7'},
   97:{c:'Boston',d:'Jul 9'}, 98:{c:'Los Angeles',d:'Jul 10'}, 99:{c:'Miami',d:'Jul 11'}, 100:{c:'Kansas City',d:'Jul 11'},
