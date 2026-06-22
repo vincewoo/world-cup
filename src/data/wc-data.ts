@@ -65,18 +65,18 @@ export interface GroupStanding {
 }
 
 export const TEAMS: Record<string, Team> = {
-  MEX: { n: 'Mexico', f: '🇲🇽', r: 1820 }, RSA: { n: 'South Africa', f: '🇿🇦', r: 1700 }, KOR: { n: 'South Korea', f: '🇰🇷', r: 1800 }, CZE: { n: 'Czechia', f: '🇨🇿', r: 1760 },
-  CAN: { n: 'Canada', f: '🇨🇦', r: 1790 }, BIH: { n: 'Bosnia & H.', f: '🇧🇦', r: 1770 }, QAT: { n: 'Qatar', f: '🇶🇦', r: 1700 }, SUI: { n: 'Switzerland', f: '🇨🇭', r: 1860 },
-  BRA: { n: 'Brazil', f: '🇧🇷', r: 2030 }, MAR: { n: 'Morocco', f: '🇲🇦', r: 1900 }, HAI: { n: 'Haiti', f: '🇭🇹', r: 1610 }, SCO: { n: 'Scotland', f: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', r: 1770 },
-  USA: { n: 'United States', f: '🇺🇸', r: 1840 }, PAR: { n: 'Paraguay', f: '🇵🇾', r: 1760 }, AUS: { n: 'Australia', f: '🇦🇺', r: 1740 }, TUR: { n: 'Türkiye', f: '🇹🇷', r: 1800 },
-  GER: { n: 'Germany', f: '🇩🇪', r: 1980 }, CUW: { n: 'Curaçao', f: '🇨🇼', r: 1600 }, CIV: { n: 'Ivory Coast', f: '🇨🇮', r: 1800 }, ECU: { n: 'Ecuador', f: '🇪🇨', r: 1820 },
-  NED: { n: 'Netherlands', f: '🇳🇱', r: 1990 }, JPN: { n: 'Japan', f: '🇯🇵', r: 1850 }, SWE: { n: 'Sweden', f: '🇸🇪', r: 1800 }, TUN: { n: 'Tunisia', f: '🇹🇳', r: 1730 },
-  BEL: { n: 'Belgium', f: '🇧🇪', r: 1960 }, EGY: { n: 'Egypt', f: '🇪🇬', r: 1790 }, IRN: { n: 'Iran', f: '🇮🇷', r: 1780 }, NZL: { n: 'New Zealand', f: '🇳🇿', r: 1590 },
-  ESP: { n: 'Spain', f: '🇪🇸', r: 2100 }, CPV: { n: 'Cape Verde', f: '🇨🇻', r: 1640 }, KSA: { n: 'Saudi Arabia', f: '🇸🇦', r: 1690 }, URU: { n: 'Uruguay', f: '🇺🇾', r: 1900 },
-  FRA: { n: 'France', f: '🇫🇷', r: 2060 }, SEN: { n: 'Senegal', f: '🇸🇳', r: 1860 }, IRQ: { n: 'Iraq', f: '🇮🇶', r: 1690 }, NOR: { n: 'Norway', f: '🇳🇴', r: 1860 },
-  ARG: { n: 'Argentina', f: '🇦🇷', r: 2080 }, ALG: { n: 'Algeria', f: '🇩🇿', r: 1790 }, AUT: { n: 'Austria', f: '🇦🇹', r: 1800 }, JOR: { n: 'Jordan', f: '🇯🇴', r: 1650 },
-  POR: { n: 'Portugal', f: '🇵🇹', r: 2010 }, COD: { n: 'DR Congo', f: '🇨🇩', r: 1730 }, UZB: { n: 'Uzbekistan', f: '🇺🇿', r: 1700 }, COL: { n: 'Colombia', f: '🇨🇴', r: 1880 },
-  ENG: { n: 'England', f: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', r: 2020 }, CRO: { n: 'Croatia', f: '🇭🇷', r: 1900 }, GHA: { n: 'Ghana', f: '🇬🇭', r: 1730 }, PAN: { n: 'Panama', f: '🇵🇦', r: 1720 },
+  MEX: { n: 'Mexico', f: '🇲🇽', r: 1896 }, RSA: { n: 'South Africa', f: '🇿🇦', r: 1527 }, KOR: { n: 'South Korea', f: '🇰🇷', r: 1771 }, CZE: { n: 'Czechia', f: '🇨🇿', r: 1696 },
+  CAN: { n: 'Canada', f: '🇨🇦', r: 1777 }, BIH: { n: 'Bosnia & H.', f: '🇧🇦', r: 1596 }, QAT: { n: 'Qatar', f: '🇶🇦', r: 1437 }, SUI: { n: 'Switzerland', f: '🇨🇭', r: 1885 },
+  BRA: { n: 'Brazil', f: '🇧🇷', r: 1986 }, MAR: { n: 'Morocco', f: '🇲🇦', r: 1866 }, HAI: { n: 'Haiti', f: '🇭🇹', r: 1528 }, SCO: { n: 'Scotland', f: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', r: 1768 },
+  USA: { n: 'United States', f: '🇺🇸', r: 1820 }, PAR: { n: 'Paraguay', f: '🇵🇾', r: 1816 }, AUS: { n: 'Australia', f: '🇦🇺', r: 1799 }, TUR: { n: 'Türkiye', f: '🇹🇷', r: 1813 },
+  GER: { n: 'Germany', f: '🇩🇪', r: 1954 }, CUW: { n: 'Curaçao', f: '🇨🇼', r: 1453 }, CIV: { n: 'Ivory Coast', f: '🇨🇮', r: 1728 }, ECU: { n: 'Ecuador', f: '🇪🇨', r: 1864 },
+  NED: { n: 'Netherlands', f: '🇳🇱', r: 1972 }, JPN: { n: 'Japan', f: '🇯🇵', r: 1925 }, SWE: { n: 'Sweden', f: '🇸🇪', r: 1727 }, TUN: { n: 'Tunisia', f: '🇹🇳', r: 1570 },
+  BEL: { n: 'Belgium', f: '🇧🇪', r: 1869 }, EGY: { n: 'Egypt', f: '🇪🇬', r: 1711 }, IRN: { n: 'Iran', f: '🇮🇷', r: 1766 }, NZL: { n: 'New Zealand', f: '🇳🇿', r: 1578 },
+  ESP: { n: 'Spain', f: '🇪🇸', r: 2134 }, CPV: { n: 'Cape Verde', f: '🇨🇻', r: 1625 }, KSA: { n: 'Saudi Arabia', f: '🇸🇦', r: 1593 }, URU: { n: 'Uruguay', f: '🇺🇾', r: 1851 },
+  FRA: { n: 'France', f: '🇫🇷', r: 2084 }, SEN: { n: 'Senegal', f: '🇸🇳', r: 1839 }, IRQ: { n: 'Iraq', f: '🇮🇶', r: 1592 }, NOR: { n: 'Norway', f: '🇳🇴', r: 1929 },
+  ARG: { n: 'Argentina', f: '🇦🇷', r: 2128 }, ALG: { n: 'Algeria', f: '🇩🇿', r: 1759 }, AUT: { n: 'Austria', f: '🇦🇹', r: 1857 }, JOR: { n: 'Jordan', f: '🇯🇴', r: 1653 },
+  POR: { n: 'Portugal', f: '🇵🇹', r: 1967 }, COD: { n: 'DR Congo', f: '🇨🇩', r: 1674 }, UZB: { n: 'Uzbekistan', f: '🇺🇿', r: 1698 }, COL: { n: 'Colombia', f: '🇨🇴', r: 1998 },
+  ENG: { n: 'England', f: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', r: 2055 }, CRO: { n: 'Croatia', f: '🇭🇷', r: 1881 }, GHA: { n: 'Ghana', f: '🇬🇭', r: 1557 }, PAN: { n: 'Panama', f: '🇵🇦', r: 1683 },
 };
 
 // Group order = seeding (pot) order. Standings are computed from results.
