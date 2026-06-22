@@ -46,11 +46,21 @@ data — the UI never breaks.
 
 ### Production deployment
 
-The dev proxy only runs under `vite dev`. For a production build you need an
-equivalent server-side proxy (any platform: a serverless function, an Nginx
-`proxy_pass`, etc.) that forwards `/api/football-data/*` to
-`https://api.football-data.org/v4/*` and adds the `X-Auth-Token` header. Keep
-the key on the server.
+The dev proxy only runs under `vite dev`. For production this repo ships a
+ready-made, zero-dependency Node server (`server/proxy.mjs`, Node 18+) that both
+serves the built SPA and forwards `/api/football-data/*` to the real API with the
+`X-Auth-Token` header injected server-side — so the key stays on the server:
+
+```bash
+npm run build                                   # type-check + build to dist/
+FOOTBALL_DATA_TOKEN=<your-key> npm run proxy     # serves dist/ + live proxy on :8080
+```
+
+Set `PORT` to change the port. Without a token it still serves the app; the live
+feed simply falls back to seeded data. If you'd rather deploy the static `dist/`
+behind your own infrastructure, replicate the same rule: forward
+`/api/football-data/*` → `https://api.football-data.org/v4/*` with the
+`X-Auth-Token` header (a serverless function, an Nginx `proxy_pass`, etc.).
 
 ## Commands
 

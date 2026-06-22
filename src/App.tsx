@@ -6,6 +6,7 @@ import { fetchLiveResults, LIVE_REFRESH_MS, type LiveSyncResult } from './data/l
 import { Bracket } from './components/Bracket';
 import { GroupOdds } from './components/GroupOdds';
 import { Hover } from './components/Hover';
+import { loadPicks, savePicks, shareUrl } from './share';
 import type { Picks } from './types';
 
 const PICK_COLOR = '#63e06f';
@@ -47,7 +48,8 @@ const SUBLINE =
 export default function App() {
   const [results, setResults] = useState<Results | null>(null);
   const [proj, setProj] = useState<Projection | null>(null);
-  const [picks, setPicks] = useState<Picks>({});
+  const [picks, setPicks] = useState<Picks>(loadPicks);
+  const [shared, setShared] = useState(false);
   const [layout, setLayout] = useState<'classic' | 'flow' | 'focus'>('classic');
   const [view, setView] = useState<'bracket' | 'groups'>('bracket');
   const [focus, setFocus] = useState(0);
@@ -72,6 +74,11 @@ export default function App() {
       return np;
     });
   }, [results]);
+
+  // Mirror picks to localStorage so a refresh restores the bracket.
+  useEffect(() => {
+    savePicks(picks);
+  }, [picks]);
 
   const syncLive = useCallback(async () => {
     setLiveLoading(true);
@@ -108,6 +115,25 @@ export default function App() {
   }, []);
 
   const reset = useCallback(() => setPicks({}), []);
+
+  const share = useCallback(() => {
+    const url = shareUrl(picks);
+    // Keep the address bar in sync so a manual copy/refresh also works.
+    try {
+      window.history.replaceState(null, '', url);
+    } catch {
+      /* ignore */
+    }
+    const flash = () => {
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1600);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(flash, flash);
+    } else {
+      flash();
+    }
+  }, [picks]);
 
   const setScore = useCallback((g: string, fi: number, val: Score) => {
     setResults((prev) => {
@@ -174,6 +200,14 @@ export default function App() {
               <span style={{ font: "700 19px/1 'Space Grotesk'", color: champ ? '#f4f7fb' : '#697283' }}>{champ ? champ.n : '—'}</span>
             </div>
           </div>
+          <Hover
+            as="button"
+            onClick={share}
+            style={{ padding: '9px 15px', borderRadius: 999, border: '1px solid #2a2f3b', background: 'transparent', color: shared ? '#4ee0a0' : '#aeb6c6', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}
+            hoverStyle={{ background: '#1b1f28', color: shared ? '#4ee0a0' : '#eef1f6' }}
+          >
+            {shared ? 'Copied!' : 'Share'}
+          </Hover>
           <Hover
             as="button"
             onClick={reset}
