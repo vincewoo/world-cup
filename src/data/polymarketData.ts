@@ -48,11 +48,17 @@ export interface PolymarketSync {
 }
 
 const PROXY_BASE = '/api/polymarket';
-// World Cup events live under a Polymarket tag/series. The exact tag_slug must be
-// confirmed against the live API once egress is allowlisted; until then this is a
-// best-effort default and the feed degrades gracefully if it returns nothing.
-// This query feeds the moneyline + champion maps (and advance as a fallback).
-const EVENTS_QUERY = `${PROXY_BASE}/events?closed=false&limit=500&tag_slug=fifa-world-cup`;
+// All WC2026 events live under one Polymarket tag. We filter by its *numeric*
+// tag_id (102232) rather than a tag_slug — Polymarket's slug/text filters are
+// unreliable, but the id is stable. This query (paged below) feeds the moneyline
+// + champion maps; the dedicated advance event (further down) overrides advance.
+const WC_TAG_ID = 102232;
+// Per request page; we page by offset until a short/empty page so a server-side
+// cap can't silently truncate the ~600+ WC events.
+const PAGE_LIMIT = 500;
+const MAX_PAGES = 12;
+const eventsQuery = (offset: number) =>
+  `${PROXY_BASE}/events?closed=false&limit=${PAGE_LIMIT}&offset=${offset}&tag_id=${WC_TAG_ID}`;
 
 // The "to advance" odds shown in the Group-odds tab come from one dedicated
 // Polymarket event (a grouped Yes/No-per-team market), fetched by its exact slug
@@ -116,6 +122,18 @@ function subjectTeam(ev: PMEvent, m: PMMarket): string | null {
   return teamCode(m.groupItemTitle) ?? teamCode(m.question) ?? teamCode(ev.title) ?? null;
 }
 
+// Per-game events are slugged `fifwc-<home>-<away>-<YYYY-MM-DD>` (e.g.
+// `fifwc-nor-sen-2026-06-22`). The two 3-letter tokens identify the fixture
+// authoritatively, independent of how the market labels its outcomes.
+const GAME_SLUG_RE = /^fifwc-([a-z]{3})-([a-z]{3})-\d{4}-\d{2}-\d{2}/;
+function pairFromSlug(slug: string | undefined): [string, string] | null {
+  if (!slug) return null;
+  const m = GAME_SLUG_RE.exec(slug);
+  if (!m) return null;
+  const a = teamCode(m[1]), b = teamCode(m[2]); // codes resolve via teamNames' code index
+  return a && b && a !== b ? [a, b] : null;
+}
+
 const matches = (s: string | undefined, re: RegExp) => !!s && re.test(s.toLowerCase());
 const CHAMP_RE = /winner|champion|win the (world cup|tournament|wc|trophy)|lift the/;
 const ADVANCE_RE = /advance|qualif|knockout|round of 32|group stage|progress|reach the/;
@@ -138,6 +156,14 @@ function ingestMarket(ev: PMEvent, m: PMMarket, out: PolymarketSync): boolean {
       .map((o, i) => ({ code: teamCode(o), p: prices[i], i }))
       .filter((s) => s.i !== drawIdx);
     const [a, b] = sides;
+    // If an outcome label didn't resolve to a team, backfill from the per-game
+    // event slug (fifwc-<home>-<away>-<date>): assign the slug code that isn't
+    // already taken by the other side.
+    const slugPair = pairFromSlug(ev.slug);
+    if (slugPair) {
+      if (!a.code) a.code = slugPair[0] === b.code ? slugPair[1] : slugPair[0];
+      if (!b.code) b.code = slugPair[0] === a.code ? slugPair[1] : slugPair[0];
+    }
     if (a?.code && b?.code && a.code !== b.code) {
       out.moneyline[pairKey(a.code, b.code)] = {
         teamA: a.code, teamB: b.code,
@@ -222,6 +248,21 @@ async function fetchEvents(query: string, signal?: AbortSignal): Promise<PMEvent
   return Array.isArray(data) ? data : data.events ?? [];
 }
 
+// Page through all WC events (tag_id), advancing the offset by however many a
+// page actually returns so a server-side limit cap can't truncate us early.
+// Stops on the first empty page (or the page cap, as a runaway guard).
+async function fetchAllWcEvents(signal?: AbortSignal): Promise<PMEvent[]> {
+  const all: PMEvent[] = [];
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const batch = await fetchEvents(eventsQuery(offset), signal);
+    if (batch.length === 0) break;
+    all.push(...batch);
+    offset += batch.length;
+  }
+  return all;
+}
+
 /**
  * Fetch live Polymarket odds and reshape them into moneyline / advance / champion
  * maps. Two requests run in parallel: the broad World Cup tag query (moneyline +
@@ -233,7 +274,7 @@ async function fetchEvents(query: string, signal?: AbortSignal): Promise<PMEvent
  */
 export async function fetchPolymarketOdds(signal?: AbortSignal): Promise<PolymarketSync> {
   const [tag, advance] = await Promise.allSettled([
-    fetchEvents(EVENTS_QUERY, signal),
+    fetchAllWcEvents(signal),
     fetchEvents(ADVANCE_QUERY, signal),
   ]);
 

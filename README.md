@@ -106,9 +106,10 @@ markets matched, or *"Market odds unavailable"* on failure.
 > **Network egress:** `gamma-api.polymarket.com` must be reachable from wherever
 > the proxy runs (dev machine, prod host, or sandbox allowlist). If it's blocked,
 > the feed degrades to "unavailable" and the rest of the app is unaffected. The
-> broad World Cup event-list query (`tag_slug`) in `polymarketData.ts` — which
-> feeds the moneyline + champion maps — should be confirmed against the live API
-> once egress is available; the advance map already uses an exact event slug.
+> broad World Cup event-list query in `polymarketData.ts` filters by the numeric
+> WC2026 `tag_id` (102232) and pages through every event — Polymarket's per-game
+> moneyline markets are individual events slugged `fifwc-<home>-<away>-<date>`
+> (e.g. `fifwc-nor-sen-2026-06-22`); the advance map uses an exact event slug.
 
 ## Commands
 

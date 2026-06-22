@@ -25,10 +25,16 @@ const NAME_ALIASES: Record<string, string> = {
 export const normalize = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, '').trim();
 
-// name -> team code, built once from TEAMS plus the alias table.
+// name -> team code, built once from TEAMS plus the alias table. We also index
+// each team's own 3-letter code, because some feeds identify teams by code
+// rather than full name — notably Polymarket's per-game event slugs
+// (`fifwc-nor-sen-2026-06-22`) and some of its outcome labels.
 const NAME_INDEX: Record<string, string> = (() => {
   const idx: Record<string, string> = {};
-  Object.entries(TEAMS).forEach(([code, t]) => { idx[normalize(t.n)] = code; });
+  Object.entries(TEAMS).forEach(([code, t]) => {
+    idx[normalize(t.n)] = code;
+    idx[normalize(code)] = code;
+  });
   Object.entries(NAME_ALIASES).forEach(([name, code]) => { idx[normalize(name)] = code; });
   return idx;
 })();
