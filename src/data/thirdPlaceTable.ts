@@ -6,8 +6,11 @@
 // only bound which groups *can* reach a slot across all scenarios); the specific
 // per-scenario assignment is this lookup table.
 //
-// Source: FIFA Competition Regulations, Annex C (as transcribed in the Wikipedia
-// template "2026 FIFA World Cup third-place table", all 495 combinations).
+// Source: FIFA World Cup 26 Competition Regulations, Annexe C ("Combinations for
+// eight best third-placed teams"). All 495 rows verified byte-for-byte against the
+// official regulations PDF: the regulations key each row by group winner
+// (1A 1B 1D 1E 1G 1I 1K 1L); mapped through our SLOTS winner→match assignments,
+// every row matches exactly.
 //
 // Key:   the 8 advancing third-place groups, sorted A–L (e.g. "EFGHIJKL").
 // Value: the third-placed group each R32 match hosts, in THIRD_SLOT_ORDER below
