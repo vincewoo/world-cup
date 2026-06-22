@@ -175,11 +175,64 @@ interface GroupTable {
   pld: number[];
 }
 
+// A single result actually used in a group table (real or simulated), in terms of
+// the two team indices (0–3) and their goals. Used for head-to-head mini-tables.
+interface MiniGame { i: number; j: number; h: number; a: number }
+
+// Rank a group's four teams by the OFFICIAL 2026 FIFA tie-break order:
+//   1. points (all matches)
+//   2. head-to-head points  ┐ computed in a mini-table among only the teams that
+//   3. head-to-head GD       │ are still level on points (the "tied set")
+//   4. head-to-head goals    ┘
+//   5. overall GD
+//   6. overall goals scored
+//   7. fair-play / FIFA ranking — not modelled, approximated by team rating in
+//      display and by random draw in simulation.
+// (2026 moved head-to-head ABOVE overall GD — the first change since 1970.) The
+// tied set is the full set of teams equal on points, so the mini-table values are
+// fixed per team within a points level, making this comparator a consistent total
+// order. We apply the mini-table in a single pass rather than FIFA's strict
+// re-cursion onto still-tied subgroups; that only differs in rare 3-way partial
+// ties and is immaterial to the projection.
+function rankGroup(
+  ids: string[], pts: number[], gf: number[], ga: number[], games: MiniGame[], sim: boolean,
+): number[] {
+  const all = [0, 1, 2, 3];
+  const gd = (i: number) => gf[i] - ga[i];
+
+  // Head-to-head mini-table among a subset of team indices.
+  const h2h = (subset: number[]) => {
+    const hp: Record<number, number> = {}, hgf: Record<number, number> = {}, hga: Record<number, number> = {};
+    subset.forEach((i) => { hp[i] = 0; hgf[i] = 0; hga[i] = 0; });
+    for (const m of games) {
+      if (!subset.includes(m.i) || !subset.includes(m.j)) continue;
+      hgf[m.i] += m.h; hga[m.i] += m.a; hgf[m.j] += m.a; hga[m.j] += m.h;
+      if (m.h > m.a) hp[m.i] += 3; else if (m.h < m.a) hp[m.j] += 3; else { hp[m.i]++; hp[m.j]++; }
+    }
+    return { hp, hgd: (i: number) => hgf[i] - hga[i], hgf };
+  };
+
+  return all.slice().sort((a, b) => {
+    if (pts[b] !== pts[a]) return pts[b] - pts[a];
+    const tied = all.filter((x) => pts[x] === pts[a]);
+    if (tied.length > 1) {
+      const { hp, hgd, hgf } = h2h(tied);
+      if (hp[b] !== hp[a]) return hp[b] - hp[a];
+      if (hgd(b) !== hgd(a)) return hgd(b) - hgd(a);
+      if (hgf[b] !== hgf[a]) return hgf[b] - hgf[a];
+    }
+    if (gd(b) !== gd(a)) return gd(b) - gd(a);
+    if (gf[b] !== gf[a]) return gf[b] - gf[a];
+    return sim ? Math.random() - 0.5 : TEAMS[ids[b]].r - TEAMS[ids[a]].r;
+  });
+}
+
 // Compute one group's table. sim=false → only played games, ties broken by rating
 // (deterministic display). sim=true → fill unplayed via ratings.
 function table(g: string, results: Results, sim: boolean): GroupTable {
   const ids = GROUPS[g], pts = [0, 0, 0, 0], gf = [0, 0, 0, 0], ga = [0, 0, 0, 0], pld = [0, 0, 0, 0];
   const res = results[g] || [];
+  const games: MiniGame[] = [];
   FIX.forEach((pair, fi) => {
     const [i, j] = pair;
     let r = res[fi];
@@ -187,10 +240,9 @@ function table(g: string, results: Results, sim: boolean): GroupTable {
     pld[i]++; pld[j]++;
     gf[i] += r.h; ga[i] += r.a; gf[j] += r.a; ga[j] += r.h;
     if (r.h > r.a) pts[i] += 3; else if (r.h < r.a) pts[j] += 3; else { pts[i]++; pts[j]++; }
+    games.push({ i, j, h: r.h, a: r.a });
   });
-  const order = [0, 1, 2, 3].sort((a, b) =>
-    pts[b] - pts[a] || (gf[b] - ga[b]) - (gf[a] - ga[a]) || gf[b] - gf[a] ||
-    (sim ? Math.random() - 0.5 : TEAMS[ids[b]].r - TEAMS[ids[a]].r));
+  const order = rankGroup(ids, pts, gf, ga, games, sim);
   return { ids, order, pts, gf, ga, pld };
 }
 
