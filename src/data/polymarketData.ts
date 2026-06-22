@@ -7,8 +7,11 @@
 // cache; the host must be on the network egress allowlist for fetches to land.
 //
 // Three market shapes, three maps (all keyed so a missing market = graceful gap):
-//   1. MONEYLINE  per fixture (3-way "TeamA / Draw / TeamB") → keyed by pairKey.
-//      Exists only for scheduled fixtures (group games now; knockouts once locked).
+//   1. MONEYLINE  per fixture → keyed by pairKey. Polymarket splits a fixture's
+//      1X2 across three binary markets in one match event ("Will <Team> win on
+//      <date>?" ×2 + "...end in a draw?"); we assemble them back into one set of
+//      A/Draw/B odds. Exists only for scheduled fixtures (group games now;
+//      knockouts once the bracket fills).
 //   2. ADVANCE    per team ("to reach the knockouts", Yes/No)  → keyed by code.
 //   3. CHAMPION   per team ("to win the World Cup", Yes/No or a multi-outcome
 //      market) → keyed by code. Advance + champion are per-team, so they cover
@@ -48,11 +51,17 @@ export interface PolymarketSync {
 }
 
 const PROXY_BASE = '/api/polymarket';
-// World Cup events live under a Polymarket tag/series. The exact tag_slug must be
-// confirmed against the live API once egress is allowlisted; until then this is a
-// best-effort default and the feed degrades gracefully if it returns nothing.
-// This query feeds the moneyline + champion maps (and advance as a fallback).
-const EVENTS_QUERY = `${PROXY_BASE}/events?closed=false&limit=500&tag_slug=fifa-world-cup`;
+// All WC2026 events live under one Polymarket tag. We filter by its *numeric*
+// tag_id (102232) rather than a tag_slug — Polymarket's slug/text filters are
+// unreliable, but the id is stable. This query (paged below) feeds the moneyline
+// + champion maps; the dedicated advance event (further down) overrides advance.
+const WC_TAG_ID = 102232;
+// Per request page; we page by offset until a short/empty page so a server-side
+// cap can't silently truncate the ~600+ WC events.
+const PAGE_LIMIT = 500;
+const MAX_PAGES = 12;
+const eventsQuery = (offset: number) =>
+  `${PROXY_BASE}/events?closed=false&limit=${PAGE_LIMIT}&offset=${offset}&tag_id=${WC_TAG_ID}`;
 
 // The "to advance" odds shown in the Group-odds tab come from one dedicated
 // Polymarket event (a grouped Yes/No-per-team market), fetched by its exact slug
@@ -116,9 +125,41 @@ function subjectTeam(ev: PMEvent, m: PMMarket): string | null {
   return teamCode(m.groupItemTitle) ?? teamCode(m.question) ?? teamCode(ev.title) ?? null;
 }
 
+// Per-game events are slugged `fifwc-<home>-<away>-<YYYY-MM-DD>` (e.g.
+// `fifwc-nor-sen-2026-06-22`). The two 3-letter tokens identify the fixture
+// authoritatively, independent of how the market labels its outcomes.
+const GAME_SLUG_RE = /^fifwc-([a-z]{3})-([a-z]{3})-\d{4}-\d{2}-\d{2}/;
+function pairFromSlug(slug: string | undefined): [string, string] | null {
+  if (!slug) return null;
+  const m = GAME_SLUG_RE.exec(slug);
+  if (!m) return null;
+  const a = teamCode(m[1]), b = teamCode(m[2]); // codes resolve via teamNames' code index
+  return a && b && a !== b ? [a, b] : null;
+}
+
+// Per-game event titles read "Norway vs. Senegal" — a backup source for the
+// fixture's two teams when the slug isn't a recognizable fifwc-<a>-<b> pair.
+function pairFromTitle(title: string | undefined): [string, string] | null {
+  if (!title) return null;
+  const m = /^(.+?)\s+vs\.?\s+(.+)$/i.exec(title.trim());
+  if (!m) return null;
+  const a = teamCode(m[1]), b = teamCode(m[2]);
+  return a && b && a !== b ? [a, b] : null;
+}
+
+// A per-game moneyline isn't one 3-way market on Polymarket — it's three binary
+// markets inside the match event: "Will <Team> win on <date>?" (one per side) and
+// "Will <A> vs. <B> end in a draw?". These extract the team / detect the draw leg.
+const WIN_ON_RE = /^will (.+?) win on \d{4}-\d{2}-\d{2}/i;
+const DRAW_RE = /end(s|ed)? in a draw|\bdraw\b/i;
+
 const matches = (s: string | undefined, re: RegExp) => !!s && re.test(s.toLowerCase());
 const CHAMP_RE = /winner|champion|win the (world cup|tournament|wc|trophy)|lift the/;
 const ADVANCE_RE = /advance|qualif|knockout|round of 32|group stage|progress|reach the/;
+// Group-stage markets ("World Cup Group B Winner", "Will Canada win Group B?")
+// contain the word "Winner"/"win", so they'd otherwise be misread as tournament
+// champion markets. We surface no group-winner odds, so skip these outright.
+const GROUP_RE = /\bgroup [a-l]\b|win(s|ner)? of group|group winner/i;
 
 /**
  * Classify one market and fold it into the right map. Unrecognized shapes are
@@ -138,6 +179,14 @@ function ingestMarket(ev: PMEvent, m: PMMarket, out: PolymarketSync): boolean {
       .map((o, i) => ({ code: teamCode(o), p: prices[i], i }))
       .filter((s) => s.i !== drawIdx);
     const [a, b] = sides;
+    // If an outcome label didn't resolve to a team, backfill from the per-game
+    // event slug (fifwc-<home>-<away>-<date>): assign the slug code that isn't
+    // already taken by the other side.
+    const slugPair = pairFromSlug(ev.slug);
+    if (slugPair) {
+      if (!a.code) a.code = slugPair[0] === b.code ? slugPair[1] : slugPair[0];
+      if (!b.code) b.code = slugPair[0] === a.code ? slugPair[1] : slugPair[0];
+    }
     if (a?.code && b?.code && a.code !== b.code) {
       out.moneyline[pairKey(a.code, b.code)] = {
         teamA: a.code, teamB: b.code,
@@ -160,15 +209,64 @@ function ingestMarket(ev: PMEvent, m: PMMarket, out: PolymarketSync): boolean {
     return any;
   }
 
-  // 3. Binary per-team market (Yes/No): advance or champion by context.
+  // 3. Binary per-team market (Yes/No): advance or champion by context. Skip
+  // group-stage markets, whose "Winner"/"win" wording mimics the champion ones.
   const yes = yesPrice(outcomes, prices);
-  if (yes != null) {
+  if (yes != null && !matches(ctx, GROUP_RE)) {
     const code = subjectTeam(ev, m);
     if (!code) return false;
     if (matches(ctx, CHAMP_RE)) { out.champion[code] = { pct: pct(yes), volume: vol }; return true; }
     if (matches(ctx, ADVANCE_RE)) { out.advance[code] = { pct: pct(yes), volume: vol }; return true; }
   }
   return false;
+}
+
+/**
+ * Assemble a per-game moneyline from a match event's binary markets. Polymarket
+ * splits a fixture's 1X2 across three Yes/No markets ("Will <Team> win on
+ * <date>?" ×2 + "...end in a draw?"); we read each leg's Yes price, identify the
+ * two teams (slug → title → the win markets themselves), and emit one
+ * MoneylineOdds keyed by the unordered team pair. Returns true if it mapped one.
+ */
+function foldEventMoneyline(ev: PMEvent, out: PolymarketSync): boolean {
+  const winByCode: Record<string, number> = {};
+  let drawYes: number | null = null;
+  let vol = num(ev.volume);
+
+  for (const m of ev.markets ?? []) {
+    if (m.closed) continue;
+    const outcomes = parseStrArray(m.outcomes);
+    const prices = parseStrArray(m.outcomePrices).map((p) => parseFloat(p));
+    if (outcomes.length !== prices.length) continue;
+    const yes = yesPrice(outcomes, prices);
+    if (yes == null) continue;
+    const q = m.question ?? '';
+    const wm = WIN_ON_RE.exec(q);
+    if (wm) {
+      const code = teamCode(wm[1]) ?? teamCode(m.groupItemTitle);
+      if (code) { winByCode[code] = yes; vol = Math.max(vol, num(m.volume)); }
+    } else if (DRAW_RE.test(q)) {
+      drawYes = yes;
+    }
+  }
+
+  const codes = Object.keys(winByCode);
+  const pair =
+    pairFromSlug(ev.slug) ??
+    pairFromTitle(ev.title) ??
+    (codes.length === 2 ? ([codes[0], codes[1]] as [string, string]) : null);
+  if (!pair) return false;
+  const [ca, cb] = pair;
+  if (!(ca in winByCode) || !(cb in winByCode)) return false;
+
+  const pA = pct(winByCode[ca]), pB = pct(winByCode[cb]);
+  out.moneyline[pairKey(ca, cb)] = {
+    teamA: ca, teamB: cb, pA, pB,
+    // Use the explicit draw market when present; otherwise back it out of 1−A−B.
+    pDraw: drawYes != null ? pct(drawYes) : Math.max(0, 100 - pA - pB),
+    volume: vol,
+  };
+  return true;
 }
 
 /** Fold a list of Gamma events into the three odds maps. Pure — no network. */
@@ -178,6 +276,9 @@ export function foldEvents(events: PMEvent[]): PolymarketSync {
     moneyline: {}, advance: {}, champion: {},
   };
   for (const ev of events) {
+    // Per-game moneyline is assembled across the event's binary markets…
+    if (foldEventMoneyline(ev, out)) out.count++;
+    // …while champion / advance are per-market (per-team) classifications.
     for (const m of ev.markets ?? []) {
       if (ingestMarket(ev, m, out)) out.count++;
     }
@@ -222,6 +323,21 @@ async function fetchEvents(query: string, signal?: AbortSignal): Promise<PMEvent
   return Array.isArray(data) ? data : data.events ?? [];
 }
 
+// Page through all WC events (tag_id), advancing the offset by however many a
+// page actually returns so a server-side limit cap can't truncate us early.
+// Stops on the first empty page (or the page cap, as a runaway guard).
+async function fetchAllWcEvents(signal?: AbortSignal): Promise<PMEvent[]> {
+  const all: PMEvent[] = [];
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const batch = await fetchEvents(eventsQuery(offset), signal);
+    if (batch.length === 0) break;
+    all.push(...batch);
+    offset += batch.length;
+  }
+  return all;
+}
+
 /**
  * Fetch live Polymarket odds and reshape them into moneyline / advance / champion
  * maps. Two requests run in parallel: the broad World Cup tag query (moneyline +
@@ -233,7 +349,7 @@ async function fetchEvents(query: string, signal?: AbortSignal): Promise<PMEvent
  */
 export async function fetchPolymarketOdds(signal?: AbortSignal): Promise<PolymarketSync> {
   const [tag, advance] = await Promise.allSettled([
-    fetchEvents(EVENTS_QUERY, signal),
+    fetchAllWcEvents(signal),
     fetchEvents(ADVANCE_QUERY, signal),
   ]);
 
