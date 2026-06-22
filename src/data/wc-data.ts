@@ -161,7 +161,7 @@ function poisson(l: number): number {
   do { k++; p *= Math.random(); } while (p > L);
   return k - 1;
 }
-function simGoals(ra: number, rb: number): { h: number; a: number } {
+export function simGoals(ra: number, rb: number): { h: number; a: number } {
   const d = (ra - rb) / 220;
   return { h: poisson(1.36 * Math.exp(d * 0.46)), a: poisson(1.36 * Math.exp(-d * 0.46)) };
 }

@@ -2,7 +2,7 @@
 // bracket renders. Ported from the App logic in World Cup Predictor.dc.html.
 
 import {
-  FEED, SLOTS, TEAMS, VENUES, sideLabel,
+  FEED, SLOTS, TEAMS, VENUES, sideLabel, simGoals,
   type Projection, type SlotDef,
 } from './data/wc-data';
 import type { MatchView, Picks, RawRow, SlotView } from './types';
@@ -38,6 +38,36 @@ export function cleanup(picks: Picks): void {
       : [picks[s1] || null, picks[s2] || null];
     if (picks[m] && !valid.includes(picks[m])) delete picks[m];
   });
+}
+
+// Simulate a knockout matchup between two teams and return side-A's win %.
+// Results are cached by team pair so renders don't re-simulate needlessly.
+const KO_SIMS = 500;
+const probCache = new Map<string, number>();
+
+export function koWinProb(idA: string, idB: string): number {
+  const key = idA + ':' + idB;
+  const cached = probCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const ra = TEAMS[idA]?.r, rb = TEAMS[idB]?.r;
+  if (ra == null || rb == null) return 50;
+
+  let winsA = 0;
+  for (let i = 0; i < KO_SIMS; i++) {
+    const g = simGoals(ra, rb);
+    if (g.h > g.a) winsA++;
+    else if (g.h === g.a) {
+      // Draw → extra-time approximation: re-sim, ties broken by coin-flip
+      const et = simGoals(ra, rb);
+      if (et.h > et.a) winsA++;
+      else if (et.h === et.a) { if (Math.random() < 0.5) winsA++; }
+    }
+  }
+  const pct = (winsA / KO_SIMS) * 100;
+  probCache.set(key, pct);
+  probCache.set(idB + ':' + idA, 100 - pct); // cache the inverse too
+  return pct;
 }
 
 function rowOf(m: number, id: string, prob: number | null, clinched: boolean, ctx: VMContext): RawRow {
@@ -80,6 +110,20 @@ export function matchView(m: number, ctx: VMContext): MatchView {
   const v = VENUES[m] || ({} as { c?: string; d?: string });
   const slotA = m <= 88 ? slotR32(m, 'A', ctx) : slotKO(m, 'A', ctx);
   const slotB = m <= 88 ? slotR32(m, 'B', ctx) : slotKO(m, 'B', ctx);
+
+  // For knockout matches: when both teams are determined, compute ELO-based
+  // win probabilities so the user sees each side's chance in the matchup.
+  if (m > 88) {
+    const rowA = slotA.rows[0], rowB = slotB.rows[0];
+    if (rowA?.id && rowB?.id && !rowA.placeholder && !rowB.placeholder) {
+      const pA = koWinProb(rowA.id, rowB.id);
+      rowA.prob = pA;
+      rowA.bar = true;
+      rowB.prob = 100 - pA;
+      rowB.bar = true;
+    }
+  }
+
   const headerRight = m === 104 ? 'Final' : m === 103 ? '3rd place' : 'Match ' + m;
   const highlight = slotA.rows.concat(slotB.rows).some((r) => r.picked);
   return {
