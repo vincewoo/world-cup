@@ -40,7 +40,8 @@ const FOOTNOTE =
   'Win % and qualification odds are model estimates (team-rating Monte-Carlo, 3,000 runs), not official. ' +
   'Group results are seeded as of June 21, 2026 and partly approximate — correct any score under “Group odds” ' +
   'to refresh the whole projection. Round-of-32 slot rules follow FIFA’s official bracket; third-placed ' +
-  'allocations are approximated.';
+  'allocations are approximated. Once the live feed is connected, confirmed knockout matchups and results ' +
+  'are pulled from the API and locked in (replacing the projection round by round).';
 const SUBLINE =
   'Group stage in progress — slots show each team’s chance to land there, from 3,000 simulations. ' +
   'Clinched teams (✓) are locked in; tap any other team to send your pick through.';
@@ -57,6 +58,7 @@ export default function App() {
   const [live, setLive] = useState<LiveSyncResult | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [autoLive, setAutoLive] = useState(false);
+  const [lockedSlots, setLockedSlots] = useState<Record<string, string>>({});
 
   // Initial load — deferred a frame so the "running simulations" loader paints.
   useEffect(() => {
@@ -85,7 +87,18 @@ export default function App() {
     try {
       const r = await fetchLiveResults();
       setLive(r);
-      if (r.source === 'live') setResults(r.results); // re-projects via the effect above
+      if (r.source === 'live') {
+        setResults(r.results); // re-projects via the effect above
+        setLockedSlots(r.lockedSlots); // confirmed R32 matchups
+        // Auto-advance any knockout match the API has decided.
+        if (Object.keys(r.lockedPicks).length) {
+          setPicks((p) => {
+            const np = { ...p, ...r.lockedPicks };
+            cleanup(np);
+            return np;
+          });
+        }
+      }
     } finally {
       setLiveLoading(false);
     }
@@ -159,7 +172,7 @@ export default function App() {
     );
   }
 
-  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick };
+  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick, lockedSlots };
   const isBracket = view === 'bracket';
   const champId = picks[104];
   const champ = champId ? TEAMS[champId] : null;
@@ -172,7 +185,10 @@ export default function App() {
     statusText = 'Syncing live results…';
   } else if (live?.source === 'live') {
     dot = '#4ee0a0';
-    statusText = `Live · ${live.syncedMatches} match${live.syncedMatches === 1 ? '' : 'es'} synced · ${live.fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ko = live.lockedResults
+      ? ` · ${live.lockedResults} knockout result${live.lockedResults === 1 ? '' : 's'}`
+      : '';
+    statusText = `Live · ${live.syncedMatches} group match${live.syncedMatches === 1 ? '' : 'es'}${ko} · ${live.fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   } else if (live?.error) {
     dot = '#ff7ab8';
     statusText = `${live.error} — using seeded data`;

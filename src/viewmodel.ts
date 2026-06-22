@@ -12,6 +12,8 @@ export interface VMContext {
   proj: Projection;
   pickColor: string;
   pick: (m: number, id: string) => void;
+  /** Confirmed R32 matchups from the live feed: slot-side key → team code. */
+  lockedSlots?: Record<string, string>;
 }
 
 export function matchTeams(m: number, picks: Picks): [string | null, string | null] {
@@ -48,6 +50,11 @@ function rowOf(m: number, id: string, prob: number | null, clinched: boolean, ct
 
 function slotR32(m: number, side: 'A' | 'B', ctx: VMContext): SlotView {
   const def = (SLOTS.find((s) => s.m === m) as SlotDef)[side === 'A' ? 'a' : 'b'];
+  // Live feed confirmed this matchup → show the real team (locked), not candidates.
+  const locked = ctx.lockedSlots?.[m + side];
+  if (locked && TEAMS[locked]) {
+    return { label: sideLabel(def), rows: [rowOf(m, locked, null, true, ctx)] };
+  }
   const ss = ctx.proj.slotSide[m + side];
   let rows: RawRow[] = [];
   if (ss) {
