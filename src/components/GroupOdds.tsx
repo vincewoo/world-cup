@@ -119,8 +119,8 @@ export function GroupOdds({
                   {hasMarket && <span style={{ width: 58, textAlign: 'right', flex: 'none' }}>Market</span>}
                 </div>
                 {grp.rows.map((r) => {
-                  const adv = tp[r.id].adv, clin = adv > 99.99;
-                  const advColor = clin ? '#63e06f' : adv >= 60 ? '#aeb6c6' : adv >= 25 ? '#8a93a6' : '#6a7488';
+                  const adv = tp[r.id].adv, clin = adv > 99.99, out = adv === 0;
+                  const advColor = clin ? '#63e06f' : out ? '#7a6671' : adv >= 60 ? '#aeb6c6' : adv >= 25 ? '#8a93a6' : '#6a7488';
                   const cut = r.pos <= 2;
                   // Market advance % and its divergence from the model.
                   const mAdv = market?.advance[r.id]?.pct;
@@ -149,7 +149,7 @@ export function GroupOdds({
                       <span style={{ width: 30, textAlign: 'center', flex: 'none', font: "500 11px/1 'Space Grotesk'", color: '#8a93a6', ...num }}>{(r.gd > 0 ? '+' : '') + r.gd}</span>
                       <span style={{ width: 24, textAlign: 'center', flex: 'none', font: "700 12px/1 'Space Grotesk'", color: '#e2e7f0', ...num }}>{r.pts}</span>
                       <span style={{ width: 54, textAlign: 'right', flex: 'none', font: "700 12px/1 'Space Grotesk'", color: advColor, ...num }}>
-                        {clin ? '✓ in' : adv < 1 ? '<1%' : Math.round(adv) + '%'}
+                        {clin ? '✓ in' : out ? 'out' : adv < 1 ? '<1%' : Math.round(adv) + '%'}
                       </span>
                       {hasMarket && (
                         <span style={{ width: 58, textAlign: 'right', flex: 'none', font: "700 11px/1 'Space Grotesk'", color: diffColor, ...num }}
