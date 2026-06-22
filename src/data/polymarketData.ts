@@ -51,7 +51,16 @@ const PROXY_BASE = '/api/polymarket';
 // World Cup events live under a Polymarket tag/series. The exact tag_slug must be
 // confirmed against the live API once egress is allowlisted; until then this is a
 // best-effort default and the feed degrades gracefully if it returns nothing.
+// This query feeds the moneyline + champion maps (and advance as a fallback).
 const EVENTS_QUERY = `${PROXY_BASE}/events?closed=false&limit=500&tag_slug=fifa-world-cup`;
+
+// The "to advance" odds shown in the Group-odds tab come from one dedicated
+// Polymarket event (a grouped Yes/No-per-team market), fetched by its exact slug
+// so the values are authoritative rather than whatever the broad tag query +
+// regex classification happens to surface:
+//   https://polymarket.com/event/world-cup-team-to-advance-to-knockout-stages
+const ADVANCE_EVENT_SLUG = 'world-cup-team-to-advance-to-knockout-stages';
+const ADVANCE_QUERY = `${PROXY_BASE}/events?slug=${ADVANCE_EVENT_SLUG}`;
 
 // ── Raw Gamma API shapes (only the fields we read) ──────────────────────────
 interface PMMarket {
@@ -179,27 +188,77 @@ export function foldEvents(events: PMEvent[]): PolymarketSync {
 }
 
 /**
+ * Map the dedicated "team to advance to the knockout stages" event into the
+ * advance map, overwriting whatever the broad tag query inferred. Every market
+ * in this event is a per-team Yes/No on advancing, so we map them directly —
+ * no regex classification — making this the authoritative source for the
+ * Group-odds "Market" column. Returns the number of teams mapped. Pure.
+ */
+export function foldAdvanceEvent(events: PMEvent[], out: PolymarketSync): number {
+  let n = 0;
+  for (const ev of events) {
+    for (const m of ev.markets ?? []) {
+      if (m.closed) continue;
+      const outcomes = parseStrArray(m.outcomes);
+      const prices = parseStrArray(m.outcomePrices).map((p) => parseFloat(p));
+      if (outcomes.length !== prices.length) continue;
+      const yes = yesPrice(outcomes, prices);
+      if (yes == null) continue;
+      const code = subjectTeam(ev, m);
+      if (!code) continue;
+      out.advance[code] = { pct: pct(yes), volume: num(m.volume) || num(ev.volume) };
+      n++;
+    }
+  }
+  return n;
+}
+
+// Fetch one Gamma `/events` query and normalize its envelope to a PMEvent[].
+// Throws on a non-OK response so the caller can fold the error into its status.
+async function fetchEvents(query: string, signal?: AbortSignal): Promise<PMEvent[]> {
+  const res = await fetch(query, { headers: { Accept: 'application/json' }, signal });
+  if (!res.ok) throw new Error(`Polymarket responded ${res.status} ${res.statusText}`);
+  const data = (await res.json()) as PMEvent[] | { events?: PMEvent[] };
+  return Array.isArray(data) ? data : data.events ?? [];
+}
+
+/**
  * Fetch live Polymarket odds and reshape them into moneyline / advance / champion
- * maps. On any failure (egress blocked / proxy / parse) it resolves to empty maps
- * with `source:'mock'` and an `error` string, so the UI degrades gracefully.
+ * maps. Two requests run in parallel: the broad World Cup tag query (moneyline +
+ * champion) and the dedicated "team to advance to the knockout stages" event,
+ * which is the authoritative source for the Group-odds advance column and
+ * overrides anything the tag query inferred. Each request degrades on its own,
+ * and on total failure (egress blocked / proxy / parse) it resolves to empty
+ * maps with `source:'mock'` and an `error` string, so the UI never breaks.
  */
 export async function fetchPolymarketOdds(signal?: AbortSignal): Promise<PolymarketSync> {
-  try {
-    const res = await fetch(EVENTS_QUERY, { headers: { Accept: 'application/json' }, signal });
-    if (!res.ok) {
-      return {
-        source: 'mock', fetchedAt: new Date(), count: 0, moneyline: {}, advance: {}, champion: {},
-        error: `Polymarket responded ${res.status} ${res.statusText}`,
-      };
-    }
-    const data = (await res.json()) as PMEvent[] | { events?: PMEvent[] };
-    const events: PMEvent[] = Array.isArray(data) ? data : data.events ?? [];
-    return foldEvents(events);
-  } catch (err) {
-    if ((err as Error)?.name === 'AbortError') throw err;
-    return {
-      source: 'mock', fetchedAt: new Date(), count: 0, moneyline: {}, advance: {}, champion: {},
-      error: (err as Error)?.message || 'Polymarket feed unreachable',
-    };
+  const [tag, advance] = await Promise.allSettled([
+    fetchEvents(EVENTS_QUERY, signal),
+    fetchEvents(ADVANCE_QUERY, signal),
+  ]);
+
+  // A caller-initiated abort should reject, not surface as a silent failure.
+  for (const r of [tag, advance]) {
+    if (r.status === 'rejected' && (r.reason as Error)?.name === 'AbortError') throw r.reason;
   }
+
+  const out = tag.status === 'fulfilled'
+    ? foldEvents(tag.value)
+    : {
+        source: 'mock' as const, fetchedAt: new Date(), count: 0,
+        moneyline: {}, advance: {}, champion: {},
+        error: (tag.reason as Error)?.message || 'Polymarket feed unreachable',
+      };
+
+  // The dedicated advance event wins for the advance map regardless of the tag query.
+  if (advance.status === 'fulfilled') {
+    const mapped = foldAdvanceEvent(advance.value, out);
+    if (mapped > 0) {
+      out.count += mapped;
+      out.source = 'live';
+      out.error = undefined;
+    }
+  }
+
+  return out;
 }
