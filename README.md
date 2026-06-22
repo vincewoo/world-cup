@@ -1,25 +1,80 @@
-# CODING AGENTS: READ THIS FIRST
+# FIFA World Cup 2026 — Bracket Predictor
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+A dark, vibrant knockout-bracket predictor for the 2026 World Cup, built in
+**React + Vite + TypeScript**. Implemented from a Claude Design handoff (the
+original prototype and chat transcript live in `chats/` and `project/`).
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+## What it does
 
-## What you should do — IMPORTANT
+- **Monte-Carlo projection engine** (`src/data/wc-data.ts`) — 3,000 simulations
+  of the remaining group games produce each team's advance odds and each R32
+  slot's candidate probabilities. Clinched teams (✓) auto-fill.
+- **Official WC2026 structure** — all 12 groups, FIFA's Round-of-32 slot rules
+  (e.g. Match 74 = *Winner E vs best 3rd from A/B/C/D/F*), the R16→Final feed
+  map, and the third-place match.
+- **Click-to-advance bracket** — tap any contender to send them through;
+  downstream rounds update and now-invalid downstream picks are cleared.
+- **Three layouts** — Classic (two-sided, converging on the champion), Flow
+  (left-to-right columns), Focus (round-by-round, mobile-friendly).
+- **Group odds tab** — live standings with per-team advance %, plus editable
+  score steppers; editing any result re-projects everything instantly.
+- **Live results feed** — see below.
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+## Live results (football-data.org)
 
-**Read `project/World Cup Predictor.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+The seeded scores in `DEFAULT_RESULTS` are the offline fallback. To pull real
+group-stage results:
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+1. Get a free API key at <https://www.football-data.org/client/register>.
+2. Copy `.env.example` → `.env` and set `FOOTBALL_DATA_TOKEN=...`.
+3. `npm run dev` and click **Refresh live** (or toggle **Auto-refresh**).
 
-## About the design files
+How it works: the browser calls a same-origin `/api/football-data/...` path; the
+Vite dev proxy (`vite.config.ts`) forwards it to the real API and injects the
+`X-Auth-Token` header **server-side**, so the key is never shipped to the client
+and CORS is sidestepped. The adapter (`src/data/liveData.ts`) maps each WC
+group-stage fixture into our `Results` schema (by team name + group + fixture
+orientation) and merges matched results onto the seeded table; unmatched
+fixtures keep their seeded value. The status pill reports how many matches
+synced. On any failure (no key, network, no matches) it falls back to seeded
+data — the UI never breaks.
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+> Note: our team list / draw is a placeholder until the real R32 draw locks
+> (group stage ends June 27). The feed overrides any fixture whose teams it can
+> map; coverage is reported honestly in the status pill (`syncedMatches` /
+> `unmatched`).
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+### Production deployment
 
-## Bundle contents
+The dev proxy only runs under `vite dev`. For a production build you need an
+equivalent server-side proxy (any platform: a serverless function, an Nginx
+`proxy_pass`, etc.) that forwards `/api/football-data/*` to
+`https://api.football-data.org/v4/*` and adds the `X-Auth-Token` header. Keep
+the key on the server.
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `World Cup playoff predictor` project files (HTML prototypes, assets, components)
+## Commands
+
+```bash
+npm install
+npm run dev      # dev server at http://localhost:5173
+npm run build    # type-check + production build to dist/
+npm run preview  # preview the production build
+```
+
+## Project layout
+
+```
+src/
+  data/
+    wc-data.ts     # teams, groups, official slots/feed/venues + Monte-Carlo engine
+    liveData.ts    # football-data.org adapter → Results schema (live feed)
+  components/
+    Matchup.tsx    # reusable candidate-list match card
+    Bracket.tsx    # Classic / Flow / Focus layouts + champion card
+    GroupOdds.tsx  # standings + advance % + editable score steppers
+    Hover.tsx      # inline-style :hover helper
+  rounds.ts        # column/round definitions per layout
+  viewmodel.ts     # picks + projection → MatchView builders
+  types.ts         # shared view-model types
+  App.tsx          # shell: header, controls, live-data control, view switching
+```

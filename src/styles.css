@@ -1,0 +1,23 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #0a0c10;
+}
+
+/* Custom scrollbars for the horizontally-scrolling bracket layouts. */
+.wc-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.wc-scroll::-webkit-scrollbar-thumb {
+  background: #2a2f3b;
+  border-radius: 5px;
+}
+.wc-scroll::-webkit-scrollbar-thumb:hover {
+  background: #39404d;
+}
+.wc-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
