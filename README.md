@@ -85,7 +85,11 @@ three maps:
   unordered team-pair key as the live feed. Surfaced on each group fixture row
   and, once both teams lock, under each knockout match card with the model edge.
 - **To advance** per team — shown beside the model's advance % in the Group odds
-  tab, tinted by how far the market diverges (▲ market higher, ▼ lower).
+  tab, tinted by how far the market diverges (▲ market higher, ▼ lower). Sourced
+  from one dedicated event, [*World Cup: Team to Advance to Knockout
+  Stages*](https://polymarket.com/event/world-cup-team-to-advance-to-knockout-stages),
+  fetched by its exact slug so the values are authoritative rather than inferred
+  from the broad tag query.
 - **To win the tournament** per team — shown as title odds for your picked champion.
 
 Per-match markets exist only for **scheduled** fixtures (group games now; knockout
@@ -102,8 +106,9 @@ markets matched, or *"Market odds unavailable"* on failure.
 > **Network egress:** `gamma-api.polymarket.com` must be reachable from wherever
 > the proxy runs (dev machine, prod host, or sandbox allowlist). If it's blocked,
 > the feed degrades to "unavailable" and the rest of the app is unaffected. The
-> World Cup event-list query (`tag_slug`) in `polymarketData.ts` should be
-> confirmed against the live API once egress is available.
+> broad World Cup event-list query (`tag_slug`) in `polymarketData.ts` — which
+> feeds the moneyline + champion maps — should be confirmed against the live API
+> once egress is available; the advance map already uses an exact event slug.
 
 ## Commands
 
