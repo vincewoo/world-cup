@@ -32,25 +32,46 @@ group-stage results:
 How it works: the browser calls a same-origin `/api/football-data/...` path; the
 Vite dev proxy (`vite.config.ts`) forwards it to the real API and injects the
 `X-Auth-Token` header **server-side**, so the key is never shipped to the client
-and CORS is sidestepped. The adapter (`src/data/liveData.ts`) maps each WC
-group-stage fixture into our `Results` schema (by team name + group + fixture
-orientation) and merges matched results onto the seeded table; unmatched
-fixtures keep their seeded value. The status pill reports how many matches
-synced. On any failure (no key, network, no matches) it falls back to seeded
-data — the UI never breaks.
+and CORS is sidestepped. The adapter (`src/data/liveData.ts`) pulls *all* WC
+fixtures and uses them in two layers:
+
+- **Group stage** — each fixture is mapped into our `Results` schema (by team name
+  + group + fixture orientation) and merged onto the seeded table; the engine
+  re-projects R32 slot odds from it. Unmatched fixtures keep their seeded value.
+- **Knockout (R32 → Final)** — once the group stage decides who fills each R32
+  slot, `deriveBracket()` computes the *actual* bracket (group winners/runners-up
+  plus FIFA's best-third allocation) and walks it round by round. Any match the
+  API has already played is **locked in**: the confirmed R32 matchups replace the
+  projected top-3 candidate lists, and the real winner is auto-advanced into the
+  next round. Because two teams meet at most once in single-elimination, each
+  knockout match is matched purely by its (unordered) team pair.
+
+The status pill reports how many group matches synced and how many knockout
+results were locked. On any failure (no key, network, no matches) it falls back to
+seeded data — the UI never breaks.
 
 > Note: our team list / draw is a placeholder until the real R32 draw locks
-> (group stage ends June 27). The feed overrides any fixture whose teams it can
-> map; coverage is reported honestly in the status pill (`syncedMatches` /
-> `unmatched`).
+> (group stage ends June 27). The feed only fills slots / locks results whose
+> teams it can map; everything else keeps its projected value, and coverage is
+> reported honestly in the status pill (`syncedMatches` / `lockedResults`).
 
 ### Production deployment
 
-The dev proxy only runs under `vite dev`. For a production build you need an
-equivalent server-side proxy (any platform: a serverless function, an Nginx
-`proxy_pass`, etc.) that forwards `/api/football-data/*` to
-`https://api.football-data.org/v4/*` and adds the `X-Auth-Token` header. Keep
-the key on the server.
+The dev proxy only runs under `vite dev`. For production this repo ships a
+ready-made, zero-dependency Node server (`server/proxy.mjs`, Node 18+) that both
+serves the built SPA and forwards `/api/football-data/*` to the real API with the
+`X-Auth-Token` header injected server-side — so the key stays on the server:
+
+```bash
+npm run build                                   # type-check + build to dist/
+FOOTBALL_DATA_TOKEN=<your-key> npm run proxy     # serves dist/ + live proxy on :8080
+```
+
+Set `PORT` to change the port. Without a token it still serves the app; the live
+feed simply falls back to seeded data. If you'd rather deploy the static `dist/`
+behind your own infrastructure, replicate the same rule: forward
+`/api/football-data/*` → `https://api.football-data.org/v4/*` with the
+`X-Auth-Token` header (a serverless function, an Nginx `proxy_pass`, etc.).
 
 ## Commands
 

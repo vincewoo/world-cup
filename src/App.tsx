@@ -6,6 +6,7 @@ import { fetchLiveResults, LIVE_REFRESH_MS, type LiveSyncResult } from './data/l
 import { Bracket } from './components/Bracket';
 import { GroupOdds } from './components/GroupOdds';
 import { Hover } from './components/Hover';
+import { loadPicks, savePicks, shareUrl } from './share';
 import type { Picks } from './types';
 
 const PICK_COLOR = '#63e06f';
@@ -39,7 +40,8 @@ const FOOTNOTE =
   'Win % and qualification odds are model estimates (team-rating Monte-Carlo, 3,000 runs), not official. ' +
   'Group results are seeded as of June 21, 2026 and partly approximate — correct any score under “Group odds” ' +
   'to refresh the whole projection. Round-of-32 slot rules follow FIFA’s official bracket; third-placed ' +
-  'allocations are approximated.';
+  'allocations are approximated. Once the live feed is connected, confirmed knockout matchups and results ' +
+  'are pulled from the API and locked in (replacing the projection round by round).';
 const SUBLINE =
   'Group stage in progress — slots show each team’s chance to land there, from 3,000 simulations. ' +
   'Clinched teams (✓) are locked in; tap any other team to send your pick through.';
@@ -47,7 +49,8 @@ const SUBLINE =
 export default function App() {
   const [results, setResults] = useState<Results | null>(null);
   const [proj, setProj] = useState<Projection | null>(null);
-  const [picks, setPicks] = useState<Picks>({});
+  const [picks, setPicks] = useState<Picks>(loadPicks);
+  const [shared, setShared] = useState(false);
   const [layout, setLayout] = useState<'classic' | 'flow' | 'focus'>('classic');
   const [view, setView] = useState<'bracket' | 'groups'>('bracket');
   const [focus, setFocus] = useState(0);
@@ -55,6 +58,7 @@ export default function App() {
   const [live, setLive] = useState<LiveSyncResult | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [autoLive, setAutoLive] = useState(false);
+  const [lockedSlots, setLockedSlots] = useState<Record<string, string>>({});
 
   // Initial load — deferred a frame so the "running simulations" loader paints.
   useEffect(() => {
@@ -73,12 +77,28 @@ export default function App() {
     });
   }, [results]);
 
+  // Mirror picks to localStorage so a refresh restores the bracket.
+  useEffect(() => {
+    savePicks(picks);
+  }, [picks]);
+
   const syncLive = useCallback(async () => {
     setLiveLoading(true);
     try {
       const r = await fetchLiveResults();
       setLive(r);
-      if (r.source === 'live') setResults(r.results); // re-projects via the effect above
+      if (r.source === 'live') {
+        setResults(r.results); // re-projects via the effect above
+        setLockedSlots(r.lockedSlots); // confirmed R32 matchups
+        // Auto-advance any knockout match the API has decided.
+        if (Object.keys(r.lockedPicks).length) {
+          setPicks((p) => {
+            const np = { ...p, ...r.lockedPicks };
+            cleanup(np);
+            return np;
+          });
+        }
+      }
     } finally {
       setLiveLoading(false);
     }
@@ -109,6 +129,25 @@ export default function App() {
 
   const reset = useCallback(() => setPicks({}), []);
 
+  const share = useCallback(() => {
+    const url = shareUrl(picks);
+    // Keep the address bar in sync so a manual copy/refresh also works.
+    try {
+      window.history.replaceState(null, '', url);
+    } catch {
+      /* ignore */
+    }
+    const flash = () => {
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1600);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(flash, flash);
+    } else {
+      flash();
+    }
+  }, [picks]);
+
   const setScore = useCallback((g: string, fi: number, val: Score) => {
     setResults((prev) => {
       const base = prev ?? cloneDefault();
@@ -133,7 +172,7 @@ export default function App() {
     );
   }
 
-  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick };
+  const ctx: VMContext = { picks, proj, pickColor: PICK_COLOR, pick, lockedSlots };
   const isBracket = view === 'bracket';
   const champId = picks[104];
   const champ = champId ? TEAMS[champId] : null;
@@ -146,7 +185,10 @@ export default function App() {
     statusText = 'Syncing live results…';
   } else if (live?.source === 'live') {
     dot = '#4ee0a0';
-    statusText = `Live · ${live.syncedMatches} match${live.syncedMatches === 1 ? '' : 'es'} synced · ${live.fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const ko = live.lockedResults
+      ? ` · ${live.lockedResults} knockout result${live.lockedResults === 1 ? '' : 's'}`
+      : '';
+    statusText = `Live · ${live.syncedMatches} group match${live.syncedMatches === 1 ? '' : 'es'}${ko} · ${live.fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   } else if (live?.error) {
     dot = '#ff7ab8';
     statusText = `${live.error} — using seeded data`;
@@ -174,6 +216,14 @@ export default function App() {
               <span style={{ font: "700 19px/1 'Space Grotesk'", color: champ ? '#f4f7fb' : '#697283' }}>{champ ? champ.n : '—'}</span>
             </div>
           </div>
+          <Hover
+            as="button"
+            onClick={share}
+            style={{ padding: '9px 15px', borderRadius: 999, border: '1px solid #2a2f3b', background: 'transparent', color: shared ? '#4ee0a0' : '#aeb6c6', font: "600 12px/1 'Space Grotesk'", cursor: 'pointer' }}
+            hoverStyle={{ background: '#1b1f28', color: shared ? '#4ee0a0' : '#eef1f6' }}
+          >
+            {shared ? 'Copied!' : 'Share'}
+          </Hover>
           <Hover
             as="button"
             onClick={reset}
