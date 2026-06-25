@@ -115,31 +115,32 @@ export function matchView(m: number, ctx: VMContext): MatchView {
   const slotA = m <= 88 ? slotR32(m, 'A', ctx) : slotKO(m, 'A', ctx);
   const slotB = m <= 88 ? slotR32(m, 'B', ctx) : slotKO(m, 'B', ctx);
 
-  // For knockout matches: when both teams are determined, compute ELO-based
-  // win probabilities so the user sees each side's chance in the matchup.
+  // When both sides resolve to a single team, compute ELO-based win
+  // probabilities so the user sees each side's chance in the matchup —
+  // instead of a pair of bare "Clinched" labels. This covers knockout
+  // pairings (m > 88) and Round-of-32 matches where both slots have clinched.
   let market: MatchView['market'];
-  if (m > 88) {
-    const rowA = slotA.rows[0], rowB = slotB.rows[0];
-    if (rowA?.id && rowB?.id && !rowA.placeholder && !rowB.placeholder) {
-      const pA = koWinProb(rowA.id, rowB.id);
-      rowA.prob = pA;
-      rowA.bar = true;
-      rowB.prob = 100 - pA;
-      rowB.bar = true;
+  const rowA = slotA.rows[0], rowB = slotB.rows[0];
+  const determined = (r: RawRow | undefined): r is RawRow & { id: string } =>
+    !!r && !r.placeholder && !!r.id && (!!r.clinched || m > 88);
+  if (determined(rowA) && determined(rowB)) {
+    const pA = koWinProb(rowA.id, rowB.id);
+    // Swap the "Clinched" badge for a head-to-head probability bar on each side.
+    rowA.prob = pA; rowA.bar = true; rowA.clinched = false;
+    rowB.prob = 100 - pA; rowB.bar = true; rowB.clinched = false;
 
-      // Market vs model: attach the Polymarket moneyline if one exists for this
-      // exact pairing (only scheduled/locked knockout matches will have one).
-      const mk = ctx.market?.moneyline[pairKey(rowA.id, rowB.id)];
-      if (mk) {
-        const aIsTeamA = mk.teamA === rowA.id;
-        market = {
-          pA: aIsTeamA ? mk.pA : mk.pB,
-          pB: aIsTeamA ? mk.pB : mk.pA,
-          pDraw: mk.pDraw,
-          modelA: pA,
-          modelB: 100 - pA,
-        };
-      }
+    // Market vs model: attach the Polymarket moneyline if one exists for this
+    // exact pairing (only scheduled/locked matches will have one).
+    const mk = ctx.market?.moneyline[pairKey(rowA.id, rowB.id)];
+    if (mk) {
+      const aIsTeamA = mk.teamA === rowA.id;
+      market = {
+        pA: aIsTeamA ? mk.pA : mk.pB,
+        pB: aIsTeamA ? mk.pB : mk.pA,
+        pDraw: mk.pDraw,
+        modelA: pA,
+        modelB: 100 - pA,
+      };
     }
   }
 
