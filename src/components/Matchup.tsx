@@ -112,13 +112,18 @@ const labelStyle: CSSProperties = {
 };
 
 // Polymarket implied odds vs the model — shown under a knockout matchup when a
-// market exists for that exact pairing. Market win% is normalized to exclude the
-// draw so the "edge vs model" is an apples-to-apples advance probability.
+// market exists for that exact pairing. Polymarket prices the 90-minute 1X2
+// (win/draw/loss); a knockout draw resolves via extra time + penalties, so we
+// strip the draw (pA / (pA + pB)) to recover each side's *advance* probability.
+// We display those draw-excluded advance odds — not the raw 1X2 — so the row is
+// on the same footing as the model and the "pts higher than model" gap is the
+// visible difference between the two.
 function MarketCompare({ market, flagA, flagB }: {
   market: NonNullable<MatchView['market']>; flagA: string; flagB: string;
 }) {
-  const { pA, pDraw, pB, modelA } = market;
+  const { pA, pB, modelA } = market;
   const advA = pA + pB > 0 ? (pA / (pA + pB)) * 100 : 50;
+  const advB = 100 - advA;
   const edge = advA - modelA; // + → market rates side A higher than the model
   const lead = edge >= 0 ? flagA : flagB;
   const edgeColor = Math.abs(edge) < 3 ? '#828b9d' : '#4fc3f7';
@@ -127,14 +132,14 @@ function MarketCompare({ market, flagA, flagB }: {
     <div style={{ marginTop: 8, borderTop: '1px dashed #262b36', paddingTop: 7 }}>
       <div style={{ ...labelStyle, color: '#6f93b0', marginBottom: 4 }}>MARKET · POLYMARKET</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={cell}>{flagA} {Math.round(pA)}%</span>
-        <span style={{ font: "600 10px/1 'Space Grotesk'", color: '#697283' }}>draw {Math.round(pDraw)}%</span>
-        <span style={cell}>{Math.round(pB)}% {flagB}</span>
+        <span style={cell}>{flagA} {Math.round(advA)}%</span>
+        <span style={{ font: "600 10px/1 'Space Grotesk'", color: '#697283' }}>to advance</span>
+        <span style={cell}>{Math.round(advB)}% {flagB}</span>
       </div>
       <div style={{ marginTop: 4, font: "600 10px/1.2 'Space Grotesk'", color: edgeColor }}>
         {Math.abs(edge) < 3
           ? 'In line with model'
-          : `Market favors ${lead} by ${Math.round(Math.abs(edge))} pts vs model`}
+          : `Market rates ${lead} ${Math.round(Math.abs(edge))} pts higher than model`}
       </div>
     </div>
   );
